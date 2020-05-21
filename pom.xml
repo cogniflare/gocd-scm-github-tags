@@ -3,9 +3,9 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>in.ashwanthkumar</groupId>
-    <artifactId>gocd-github-pr-material</artifactId>
-    <version>1.4.0-RC2</version>
+    <groupId>io.cogniflare</groupId>
+    <artifactId>gocd-scm-github-tags</artifactId>
+    <version>1.0.0-RC1</version>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -76,34 +76,13 @@
 
     <profiles>
         <profile>
-            <id>github.pr</id>
+            <id>github</id>
             <activation>
                 <activeByDefault>true</activeByDefault>
             </activation>
             <properties>
-                <plugin.name>github-pr-poller</plugin.name>
+                <plugin.name>gocd-scm-github-tags</plugin.name>
                 <resource.directory>src/main/resources/github</resource.directory>
-            </properties>
-        </profile>
-        <profile>
-            <id>git.fb</id>
-            <properties>
-                <plugin.name>git-fb-poller</plugin.name>
-                <resource.directory>src/main/resources/git</resource.directory>
-            </properties>
-        </profile>
-        <profile>
-            <id>stash.pr</id>
-            <properties>
-                <plugin.name>stash-pr-poller</plugin.name>
-                <resource.directory>src/main/resources/stash</resource.directory>
-            </properties>
-        </profile>
-        <profile>
-            <id>gerrit.cs</id>
-            <properties>
-                <plugin.name>gerrit-cs-poller</plugin.name>
-                <resource.directory>src/main/resources/gerrit</resource.directory>
             </properties>
         </profile>
     </profiles>
