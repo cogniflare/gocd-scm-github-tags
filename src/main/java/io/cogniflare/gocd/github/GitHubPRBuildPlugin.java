@@ -13,7 +13,7 @@ import com.tw.go.plugin.model.ModifiedFile;
 import com.tw.go.plugin.model.Revision;
 import com.tw.go.plugin.util.ListUtil;
 import com.tw.go.plugin.util.StringUtil;
-import io.cogniflare.gocd.github.provider.Provider;
+import io.cogniflare.gocd.github.provider.GitRemoteProvider;
 import io.cogniflare.gocd.github.settings.scm.PluginConfigurationView;
 import io.cogniflare.gocd.github.util.BranchFilter;
 import io.cogniflare.gocd.github.util.GitFactory;
@@ -59,7 +59,7 @@ public class GitHubPRBuildPlugin implements GoPlugin {
     public static final int NOT_FOUND_RESPONSE_CODE = 404;
     public static final int INTERNAL_ERROR_RESPONSE_CODE = 500;
 
-    private Provider provider;
+    private GitRemoteProvider gitRemoteProvider;
     private final GitFactory gitFactory;
     private final GitFolderFactory gitFolderFactory;
     private GoApplicationAccessor goApplicationAccessor;
@@ -71,7 +71,7 @@ public class GitHubPRBuildPlugin implements GoPlugin {
 
             Class<?> providerClass = Class.forName(properties.getProperty("provider"));
             Constructor<?> constructor = providerClass.getConstructor();
-            provider = (Provider) constructor.newInstance();
+            gitRemoteProvider = (GitRemoteProvider) constructor.newInstance();
             gitFactory = new GitFactory();
             gitFolderFactory = new GitFolderFactory();
         } catch (Exception e) {
@@ -79,8 +79,8 @@ public class GitHubPRBuildPlugin implements GoPlugin {
         }
     }
 
-    public GitHubPRBuildPlugin(Provider provider, GitFactory gitFactory, GitFolderFactory gitFolderFactory, GoApplicationAccessor goApplicationAccessor) {
-        this.provider = provider;
+    public GitHubPRBuildPlugin(GitRemoteProvider gitRemoteProvider, GitFactory gitFactory, GitFolderFactory gitFolderFactory, GoApplicationAccessor goApplicationAccessor) {
+        this.gitRemoteProvider = gitRemoteProvider;
         this.gitFactory = gitFactory;
         this.gitFolderFactory = gitFolderFactory;
         this.goApplicationAccessor = goApplicationAccessor;
@@ -95,19 +95,19 @@ public class GitHubPRBuildPlugin implements GoPlugin {
     public GoPluginApiResponse handle(GoPluginApiRequest goPluginApiRequest) {
         switch (goPluginApiRequest.requestName()) {
             case REQUEST_SCM_CONFIGURATION:
-                return getPluginConfiguration(provider.getScmConfigurationView());
+                return getPluginConfiguration(gitRemoteProvider.getScmConfigurationView());
             case REQUEST_SCM_VIEW:
                 try {
-                    return getPluginView(provider, provider.getScmConfigurationView());
+                    return getPluginView(gitRemoteProvider, gitRemoteProvider.getScmConfigurationView());
                 } catch (IOException e) {
                     String message = "Failed to find template: " + e.getMessage();
                     return renderJSON(INTERNAL_ERROR_RESPONSE_CODE, message);
                 }
             case REQUEST_PLUGIN_CONFIGURATION:
-                return getPluginConfiguration(provider.getGeneralConfigurationView());
+                return getPluginConfiguration(gitRemoteProvider.getGeneralConfigurationView());
             case REQUEST_PLUGIN_VIEW:
                 try {
-                    return getPluginView(provider, provider.getGeneralConfigurationView());
+                    return getPluginView(gitRemoteProvider, gitRemoteProvider.getGeneralConfigurationView());
                 } catch (IOException e) {
                     String message = "Failed to find template: " + e.getMessage();
                     return renderJSON(INTERNAL_ERROR_RESPONSE_CODE, message);
@@ -133,14 +133,14 @@ public class GitHubPRBuildPlugin implements GoPlugin {
         return new GoPluginIdentifier(EXTENSION_NAME, goSupportedVersions);
     }
 
-    void setProvider(Provider provider) {
-        this.provider = provider;
+    void setGitRemoteProvider(GitRemoteProvider gitRemoteProvider) {
+        this.gitRemoteProvider = gitRemoteProvider;
     }
 
-    private GoPluginApiResponse getPluginView(Provider provider, PluginConfigurationView view) throws IOException {
+    private GoPluginApiResponse getPluginView(GitRemoteProvider gitRemoteProvider, PluginConfigurationView view) throws IOException {
         if (view.hasConfigurationView()) {
             Map<String, Object> response = new HashMap<String, Object>();
-            response.put("displayValue", provider.getName());
+            response.put("displayValue", gitRemoteProvider.getName());
             response.put("template", getFileContents(view.templateName()));
             return renderJSON(SUCCESS_RESPONSE_CODE, response);
         } else {
@@ -195,8 +195,7 @@ public class GitHubPRBuildPlugin implements GoPlugin {
 
         try {
             GitHelper git = gitFactory.create(gitConfig, gitFolderFactory.create(flyweightFolder));
-            git.cloneOrFetch(provider.getRefSpec());
-            Map<String, String> branchToRevisionMap = git.getBranchToRevisionMap(provider.getRefPattern());
+            git.cloneOrFetch(gitRemoteProvider.getRefSpec());
             Revision revision = git.getLatestRevision();
             git.submoduleUpdate();
 
@@ -205,7 +204,6 @@ public class GitHubPRBuildPlugin implements GoPlugin {
             Map<String, Object> revisionMap = getRevisionMap(gitConfig, defaultBranch, revision);
             response.put("revision", revisionMap);
             Map<String, String> scmDataMap = new HashMap<String, String>();
-            scmDataMap.put(BRANCH_TO_REVISION_MAP, JSONUtils.toJSON(branchToRevisionMap));
             response.put("scm-data", scmDataMap);
             LOGGER.info(String.format("Triggered build for " + defaultBranch + " with head at %s", revision.getRevision()));
             return renderJSON(SUCCESS_RESPONSE_CODE, response);
@@ -233,99 +231,56 @@ public class GitHubPRBuildPlugin implements GoPlugin {
         Map<String, String> configuration = keyValuePairs(requestBodyMap, "scm-configuration");
         final GitConfig gitConfig = getGitConfig(configuration);
         Map<String, String> scmData = (Map<String, String>) requestBodyMap.get("scm-data");
-        Map<String, String> oldBranchToRevisionMap = (Map<String, String>) fromJSON(scmData.get(BRANCH_TO_REVISION_MAP));
-        Map<String, String> lastKnownBranchToRevisionMap = (Map<String, String>) fromJSON(scmData.get(BRANCH_TO_REVISION_MAP));
         String flyweightFolder = (String) requestBodyMap.get("flyweight-folder");
         LOGGER.debug(String.format("Fetching latest for: %s", gitConfig.getUrl()));
 
         try {
             GitHelper git = gitFactory.create(gitConfig, gitFolderFactory.create(flyweightFolder));
-            git.cloneOrFetch(provider.getRefSpec());
-            Map<String, String> newBranchToRevisionMap = git.getBranchToRevisionMap(provider.getRefPattern());
+            git.cloneOrFetch(gitRemoteProvider.getRefSpec());
             git.submoduleUpdate();
-
-            if (newBranchToRevisionMap.isEmpty()) {
-                LOGGER.debug("No active PRs found.");
-                Map<String, Object> response = new HashMap<String, Object>();
-                Map<String, String> scmDataMap = new HashMap<String, String>();
-                scmDataMap.put(BRANCH_TO_REVISION_MAP, JSONUtils.toJSON(newBranchToRevisionMap));
-                response.put("scm-data", scmDataMap);
-                return renderJSON(SUCCESS_RESPONSE_CODE, response);
-            }
 
             Map<String, String> newerRevisions = new HashMap<String, String>();
 
-            BranchFilter branchFilter = provider
+            // TODO tag filter
+            BranchFilter branchFilter = gitRemoteProvider
                     .getScmConfigurationView()
                     .getBranchFilter(configuration);
 
-            for (String branch : newBranchToRevisionMap.keySet()) {
-                if (branchFilter.isBranchValid(branch)) {
-                    if (branchHasNewChange(oldBranchToRevisionMap.get(branch), newBranchToRevisionMap.get(branch))) {
-                        // If there are any changes we should return the only one of them.
-                        // Otherwise Go.CD skips other changes (revisions) in this call.
-                        // You can think about it like if we always return a minimum item
-                        // of a set with comparable items.
-                        String newValue = newBranchToRevisionMap.get(branch);
-                        newerRevisions.put(branch, newValue);
-                        oldBranchToRevisionMap.put(branch, newValue);
-                        break;
+            LOGGER.info(String.format("new commits: %d", newerRevisions.size()));
+
+            List<Map<String, Object>> revisions = new ArrayList<>();
+            for (final String branch : newerRevisions.keySet()) {
+                String lastKnownSHA = lastKnownBranchToRevisionMap.get(branch);
+                String latestSHA = newerRevisions.get(branch);
+                if (StringUtils.isNotEmpty(lastKnownSHA)) {
+                    git.resetHard(latestSHA);
+                    List<Revision> allRevisionsSince;
+                    try {
+                        allRevisionsSince = git.getRevisionsSince(lastKnownSHA);
+                    } catch (Exception e) {
+                        allRevisionsSince = Collections.singletonList(git.getLatestRevision());
                     }
-                } else {
-                    LOGGER.debug(String.format("Branch %s is filtered by branch matcher", branch));
-                }
-            }
-
-            if (newerRevisions.isEmpty()) {
-                LOGGER.debug(String.format("No updated PRs found. Old: %s New: %s", oldBranchToRevisionMap, newBranchToRevisionMap));
-
-                Map<String, Object> response = new HashMap<String, Object>();
-                Map<String, String> scmDataMap = new HashMap<String, String>();
-                scmDataMap.put(BRANCH_TO_REVISION_MAP, JSONUtils.toJSON(newBranchToRevisionMap));
-                response.put("scm-data", scmDataMap);
-                return renderJSON(SUCCESS_RESPONSE_CODE, response);
-            } else {
-                LOGGER.info(String.format("new commits: %d", newerRevisions.size()));
-
-                List<Map<String, Object>> revisions = new ArrayList<>();
-                for (final String branch : newerRevisions.keySet()) {
-                    String lastKnownSHA = lastKnownBranchToRevisionMap.get(branch);
-                    String latestSHA = newerRevisions.get(branch);
-                    if (StringUtils.isNotEmpty(lastKnownSHA)) {
-                        git.resetHard(latestSHA);
-                        List<Revision> allRevisionsSince;
-                        try {
-                            allRevisionsSince = git.getRevisionsSince(lastKnownSHA);
-                        } catch (Exception e) {
-                            allRevisionsSince = Collections.singletonList(git.getLatestRevision());
-                        }
-                        List<Map<String, Object>> changesSinceLastCommit = Lists.map(allRevisionsSince,
-                                new Function<Revision, Map<String, Object>>() {
-                                    @Override
-                                    public Map<String, Object> apply(Revision revision) {
-                                        return getRevisionMap(gitConfig, branch, revision);
-                                    }
+                    List<Map<String, Object>> changesSinceLastCommit = Lists.map(allRevisionsSince,
+                            new Function<Revision, Map<String, Object>>() {
+                                @Override
+                                public Map<String, Object> apply(Revision revision) {
+                                    return getRevisionMap(gitConfig, branch, revision);
                                 }
-                        );
-                        revisions.addAll(changesSinceLastCommit);
-                    } else {
-                        Revision revision = git.getDetailsForRevision(latestSHA);
-                        Map<String, Object> revisionMap = getRevisionMapForSHA(gitConfig, branch, revision);
-                        revisions.add(revisionMap);
-                    }
+                            }
+                    );
+                    revisions.addAll(changesSinceLastCommit);
+                } else {
+                    Revision revision = git.getDetailsForRevision(latestSHA);
+                    Map<String, Object> revisionMap = getRevisionMapForSHA(gitConfig, branch, revision);
+                    revisions.add(revisionMap);
                 }
-                Map<String, Object> response = new HashMap<String, Object>();
-                response.put("revisions", revisions);
-                Map<String, String> scmDataMap = new HashMap<String, String>();
-                // We shouldn't return any new branches from newBranchToRevisionMap.
-                // Instead of that, we can always return the previously modified map
-                // (with a newly added or with changed and existing branch), because
-                // it will be the same as there are no any changes
-                // (see if (newerRevisions.isEmpty()) { ... } clause)
-                scmDataMap.put(BRANCH_TO_REVISION_MAP, JSONUtils.toJSON(oldBranchToRevisionMap));
-                response.put("scm-data", scmDataMap);
-                return renderJSON(SUCCESS_RESPONSE_CODE, response);
             }
+            Map<String, Object> response = new HashMap<>();
+            response.put("revisions", revisions);
+            Map<String, String> scmDataMap = new HashMap<>();
+            scmDataMap.put(BRANCH_TO_REVISION_MAP, JSONUtils.toJSON(oldBranchToRevisionMap));
+            response.put("scm-data", scmDataMap);
+            return renderJSON(SUCCESS_RESPONSE_CODE, response);
         } catch (Throwable t) {
             LOGGER.warn("get latest revisions since: ", t);
             return renderJSON(INTERNAL_ERROR_RESPONSE_CODE, removeUsernameAndPassword(t.getMessage(), gitConfig));
@@ -356,7 +311,7 @@ public class GitHubPRBuildPlugin implements GoPlugin {
 
         try {
             GitHelper git = gitFactory.create(gitConfig, gitFolderFactory.create(destinationFolder));
-            git.cloneOrFetch(provider.getRefSpec());
+            git.cloneOrFetch(gitRemoteProvider.getRefSpec());
             git.resetHard(revision);
             git.submoduleUpdate();
 
@@ -380,7 +335,7 @@ public class GitHubPRBuildPlugin implements GoPlugin {
                 true,
                 Boolean.parseBoolean(configuration.get("shallowClone"))
         );
-        provider.addConfigData(gitConfig);
+        gitRemoteProvider.addConfigData(gitConfig);
         return gitConfig;
     }
 
@@ -409,7 +364,7 @@ public class GitHubPRBuildPlugin implements GoPlugin {
         }
         response.put("modifiedFiles", modifiedFilesMapList);
         Map<String, String> customDataBag = new HashMap<String, String>();
-        provider.populateRevisionData(gitConfig, branch, revision.getRevision(), customDataBag);
+        gitRemoteProvider.populateRevisionData(gitConfig, branch, revision.getRevision(), customDataBag);
         response.put("data", customDataBag);
         return response;
     }
@@ -429,7 +384,7 @@ public class GitHubPRBuildPlugin implements GoPlugin {
         if (StringUtil.isEmpty(gitConfig.getUrl())) {
             fieldMap.put("key", "url");
             fieldMap.put("message", "URL is a required field");
-        } else if (!provider.isValidURL(gitConfig.getUrl())) {
+        } else if (!gitRemoteProvider.isValidURL(gitConfig.getUrl())) {
             fieldMap.put("key", "url");
             fieldMap.put("message", "Invalid URL");
         }
@@ -439,12 +394,12 @@ public class GitHubPRBuildPlugin implements GoPlugin {
         if (StringUtil.isEmpty(gitConfig.getUrl())) {
             response.put("status", "failure");
             messages.add("URL is empty");
-        } else if (!provider.isValidURL(gitConfig.getUrl())) {
+        } else if (!gitRemoteProvider.isValidURL(gitConfig.getUrl())) {
             response.put("status", "failure");
             messages.add("Invalid URL");
         } else {
             try {
-                provider.checkConnection(gitConfig);
+                gitRemoteProvider.checkConnection(gitConfig);
             } catch (Exception e) {
                 response.put("status", "failure");
                 messages.add(e.getMessage());

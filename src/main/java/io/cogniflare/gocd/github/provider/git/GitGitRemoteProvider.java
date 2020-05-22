@@ -1,30 +1,30 @@
-package io.cogniflare.gocd.github.provider.gerrit;
+package io.cogniflare.gocd.github.provider.git;
 
 import com.thoughtworks.go.plugin.api.GoPluginIdentifier;
 import com.tw.go.plugin.HelperFactory;
 import com.tw.go.plugin.model.GitConfig;
-import io.cogniflare.gocd.github.provider.Provider;
+import io.cogniflare.gocd.github.provider.GitRemoteProvider;
 import io.cogniflare.gocd.github.settings.general.DefaultGeneralPluginConfigurationView;
 import io.cogniflare.gocd.github.settings.general.GeneralPluginConfigurationView;
-import io.cogniflare.gocd.github.settings.scm.DefaultScmPluginConfigurationView;
 import io.cogniflare.gocd.github.settings.scm.ScmPluginConfigurationView;
 import io.cogniflare.gocd.github.util.URLUtils;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.Map;
 
-public class GerritProvider implements Provider {
-    public static final String REF_SPEC = "+refs/changes/*:refs/changes/*";
-    public static final String REF_PATTERN = "refs/changes/";
+public class GitGitRemoteProvider implements GitRemoteProvider {
+    public static final String REF_SPEC = "+refs/heads/*:refs/remotes/origin/*";
+    public static final String REF_PATTERN = "refs/remotes/origin/";
 
     @Override
     public GoPluginIdentifier getPluginId() {
-        return new GoPluginIdentifier("gerrit.cs", Arrays.asList("1.0"));
+        return new GoPluginIdentifier("git.fb", Arrays.asList("1.0"));
     }
 
     @Override
     public String getName() {
-        return "Gerrit";
+        return "Git Feature Branch";
     }
 
     @Override
@@ -33,6 +33,9 @@ public class GerritProvider implements Provider {
 
     @Override
     public boolean isValidURL(String url) {
+        if (url.startsWith("/")) {
+            return new File(url).exists();
+        }
         return new URLUtils().isValidURL(url);
     }
 
@@ -52,17 +55,18 @@ public class GerritProvider implements Provider {
     }
 
     @Override
-    public void populateRevisionData(GitConfig gitConfig, String changeId, String latestSHA, Map<String, String> data) {
-        data.put("CHANGE_SET_ID", changeId);
+    public void populateRevisionData(GitConfig gitConfig, String branch, String latestSHA, Map<String, String> data) {
+        data.put("CURRENT_BRANCH", branch);
     }
 
     @Override
     public ScmPluginConfigurationView getScmConfigurationView() {
-        return new DefaultScmPluginConfigurationView();
+        return new GitScmPluginConfigurationView();
     }
 
     @Override
     public GeneralPluginConfigurationView getGeneralConfigurationView() {
         return new DefaultGeneralPluginConfigurationView();
     }
+
 }

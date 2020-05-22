@@ -1,6 +1,6 @@
 package io.cogniflare.gocd.github.provider.github.model;
 
-import io.cogniflare.gocd.github.provider.github.GitHubProvider;
+import io.cogniflare.gocd.github.provider.github.GitHubGitRemoteProvider;
 
 public class PullRequestStatus {
     private int id;
@@ -20,7 +20,7 @@ public class PullRequestStatus {
     public PullRequestStatus(int id, String lastHead, String mergedSHA, String prBranch, String toBranch, String url,
                              String author, String authorEmail, String description, String title) {
         this.id = id;
-        this.mergeRef = String.format("%s%d", GitHubProvider.REF_PATTERN, getId());
+        this.mergeRef = String.format("%s%d", GitHubGitRemoteProvider.REF_PATTERN, getId());
         this.lastHead = lastHead;
         this.mergeSHA = mergedSHA;
         this.prBranch = prBranch;

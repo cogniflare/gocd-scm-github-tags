@@ -3,7 +3,7 @@ package io.cogniflare.gocd.github.provider.github;
 import com.thoughtworks.go.plugin.api.GoPluginIdentifier;
 import com.tw.go.plugin.model.GitConfig;
 import com.tw.go.plugin.util.StringUtil;
-import io.cogniflare.gocd.github.provider.Provider;
+import io.cogniflare.gocd.github.provider.GitRemoteProvider;
 import io.cogniflare.gocd.github.provider.github.model.PullRequestStatus;
 import io.cogniflare.gocd.github.settings.general.DefaultGeneralPluginConfigurationView;
 import io.cogniflare.gocd.github.settings.general.GeneralPluginConfigurationView;
@@ -23,8 +23,8 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Properties;
 
-public class GitHubProvider implements Provider {
-    private static final Logger LOG = LoggerFactory.getLogger(GitHubProvider.class);
+public class GitHubGitRemoteProvider implements GitRemoteProvider {
+    private static final Logger LOG = LoggerFactory.getLogger(GitHubGitRemoteProvider.class);
     // public static final String PR_FETCH_REFSPEC = "+refs/pull/*/merge:refs/gh-merge/remotes/origin/*";
     // public static final String PR_MERGE_PREFIX = "refs/gh-merge/remotes/origin/";
     public static final String REF_SPEC = "+refs/pull/*/head:refs/remotes/origin/pull-request/*";

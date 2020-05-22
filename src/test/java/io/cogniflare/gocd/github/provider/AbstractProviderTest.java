@@ -5,7 +5,7 @@ import io.cogniflare.gocd.github.settings.scm.PluginConfigurationView;
 
 public abstract class AbstractProviderTest {
 
-    protected abstract Provider getProvider();
+    protected abstract GitRemoteProvider getProvider();
 
     protected PluginConfigurationView getScmView() {
         return getProvider().getScmConfigurationView();

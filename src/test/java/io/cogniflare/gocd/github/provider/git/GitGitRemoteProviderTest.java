@@ -1,21 +1,21 @@
-package io.cogniflare.gocd.github.provider.gerrit;
+package io.cogniflare.gocd.github.provider.git;
 
-import io.cogniflare.gocd.github.provider.Provider;
+import io.cogniflare.gocd.github.provider.AbstractProviderTest;
+import io.cogniflare.gocd.github.provider.GitRemoteProvider;
 import io.cogniflare.gocd.github.settings.scm.PluginConfigurationView;
 import org.junit.Test;
 
 import static org.hamcrest.CoreMatchers.hasItems;
-import static org.hamcrest.core.Is.is;
+import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 
-
-public class GerritProviderTest extends io.cogniflare.gocd.github.provider.AbstractProviderTest {
+public class GitGitRemoteProviderTest extends AbstractProviderTest {
 
     @Test
     public void shouldReturnCorrectScmSettingsTemplate() throws Exception {
         PluginConfigurationView scmConfigurationView = getScmView();
 
-        assertThat(scmConfigurationView.templateName(), is("/views/scm.template.html"));;
+        assertThat(scmConfigurationView.templateName(), is("/views/scm.template.branch.filter.html"));;
     }
 
     @Test
@@ -23,9 +23,9 @@ public class GerritProviderTest extends io.cogniflare.gocd.github.provider.Abstr
         PluginConfigurationView scmConfigurationView = getScmView();
 
         assertThat(scmConfigurationView.fields().keySet(),
-                   hasItems("url", "username", "password", "defaultBranch", "shallowClone")
+                   hasItems("url", "username", "password", "branchwhitelist", "branchblacklist", "defaultBranch", "shallowClone")
         );
-        assertThat(scmConfigurationView.fields().size(), is(5));
+        assertThat(scmConfigurationView.fields().size(), is(7));
     }
 
     @Test
@@ -37,8 +37,7 @@ public class GerritProviderTest extends io.cogniflare.gocd.github.provider.Abstr
     }
 
     @Override
-    protected Provider getProvider() {
-        return new GerritProvider();
+    protected GitRemoteProvider getProvider() {
+        return new GitGitRemoteProvider();
     }
-
 }

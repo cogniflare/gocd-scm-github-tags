@@ -1,7 +1,7 @@
 package io.cogniflare.gocd.github.provider.stash;
 
 import io.cogniflare.gocd.github.provider.AbstractProviderTest;
-import io.cogniflare.gocd.github.provider.Provider;
+import io.cogniflare.gocd.github.provider.GitRemoteProvider;
 import io.cogniflare.gocd.github.settings.scm.PluginConfigurationView;
 import org.junit.Test;
 
@@ -9,7 +9,7 @@ import static org.hamcrest.CoreMatchers.hasItems;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 
-public class StashProviderTest extends AbstractProviderTest {
+public class StashGitRemoteProviderTest extends AbstractProviderTest {
 
     @Test
     public void shouldReturnCorrectScmSettingsTemplate() throws Exception {
@@ -37,7 +37,7 @@ public class StashProviderTest extends AbstractProviderTest {
     }
 
     @Override
-    protected Provider getProvider() {
-        return new StashProvider();
+    protected GitRemoteProvider getProvider() {
+        return new StashGitRemoteProvider();
     }
 }

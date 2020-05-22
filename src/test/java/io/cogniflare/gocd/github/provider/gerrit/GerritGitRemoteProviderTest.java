@@ -1,15 +1,15 @@
-package io.cogniflare.gocd.github.provider.github;
+package io.cogniflare.gocd.github.provider.gerrit;
 
-import io.cogniflare.gocd.github.provider.AbstractProviderTest;
-import io.cogniflare.gocd.github.provider.Provider;
+import io.cogniflare.gocd.github.provider.GitRemoteProvider;
 import io.cogniflare.gocd.github.settings.scm.PluginConfigurationView;
 import org.junit.Test;
 
 import static org.hamcrest.CoreMatchers.hasItems;
-import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.assertThat;
 
-public class GitHubProviderTest extends AbstractProviderTest {
+
+public class GerritGitRemoteProviderTest extends io.cogniflare.gocd.github.provider.AbstractProviderTest {
 
     @Test
     public void shouldReturnCorrectScmSettingsTemplate() throws Exception {
@@ -37,8 +37,8 @@ public class GitHubProviderTest extends AbstractProviderTest {
     }
 
     @Override
-    protected Provider getProvider() {
-        return new GitHubProvider();
+    protected GitRemoteProvider getProvider() {
+        return new GerritGitRemoteProvider();
     }
 
 }

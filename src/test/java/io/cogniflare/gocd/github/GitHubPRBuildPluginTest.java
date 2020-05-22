@@ -10,10 +10,10 @@ import com.tw.go.plugin.GitHelper;
 import com.tw.go.plugin.model.GitConfig;
 import com.tw.go.plugin.model.ModifiedFile;
 import com.tw.go.plugin.model.Revision;
-import io.cogniflare.gocd.github.provider.gerrit.GerritProvider;
-import io.cogniflare.gocd.github.provider.git.GitProvider;
+import io.cogniflare.gocd.github.provider.gerrit.GerritGitRemoteProvider;
+import io.cogniflare.gocd.github.provider.git.GitGitRemoteProvider;
 import io.cogniflare.gocd.github.provider.github.GHUtils;
-import io.cogniflare.gocd.github.provider.github.GitHubProvider;
+import io.cogniflare.gocd.github.provider.github.GitHubGitRemoteProvider;
 import io.cogniflare.gocd.github.util.GitFactory;
 import io.cogniflare.gocd.github.util.GitFolderFactory;
 import io.cogniflare.gocd.github.util.JSONUtils;
@@ -76,7 +76,7 @@ public class GitHubPRBuildPluginTest {
         configuration.put("shallowClone", "true");
 
         GitHubPRBuildPlugin plugin = new GitHubPRBuildPlugin();
-        plugin.setProvider(new GitHubProvider());
+        plugin.setGitRemoteProvider(new GitHubGitRemoteProvider());
         GitConfig gitConfig = plugin.getGitConfig(configuration);
 
         assertThat(gitConfig.getUrl(), is("url"));
@@ -117,7 +117,7 @@ public class GitHubPRBuildPluginTest {
     @Test
     public void shouldGetLatestRevision() {
         GitHubPRBuildPlugin plugin = new GitHubPRBuildPlugin();
-        plugin.setProvider(new GitHubProvider());
+        plugin.setGitRemoteProvider(new GitHubGitRemoteProvider());
         GitHubPRBuildPlugin pluginSpy = spy(plugin);
 
         GoPluginApiRequest request = mock(GoPluginApiRequest.class);
@@ -136,9 +136,9 @@ public class GitHubPRBuildPluginTest {
 
     @Test
     public void shouldMaskPasswordBeforeReturningTheErrorMessage() {
-        GitHubProvider provider = mock(GitHubProvider.class);
+        GitHubGitRemoteProvider provider = mock(GitHubGitRemoteProvider.class);
         GitHubPRBuildPlugin gitHubPRBuildPlugin = new GitHubPRBuildPlugin();
-        gitHubPRBuildPlugin.setProvider(provider);
+        gitHubPRBuildPlugin.setGitRemoteProvider(provider);
 
         GoPluginApiRequest request = mock(GoPluginApiRequest.class);
         when(request.requestBody()).thenReturn("{scm-configuration: {url: {value: \"https://github.com/mdaliejaz/samplerepo.git\"}, username: {value: \"foo\"}, password: {value: \"secret\"}}, flyweight-folder: \"" + TEST_DIR + "\"}");
@@ -153,9 +153,9 @@ public class GitHubPRBuildPluginTest {
 
     @Test
     public void shouldMaskUsernameAndPasswordInErrorMessageIfExists() {
-        GitHubProvider provider = mock(GitHubProvider.class);
+        GitHubGitRemoteProvider provider = mock(GitHubGitRemoteProvider.class);
         GitHubPRBuildPlugin gitHubPRBuildPlugin = new GitHubPRBuildPlugin();
-        gitHubPRBuildPlugin.setProvider(provider);
+        gitHubPRBuildPlugin.setGitRemoteProvider(provider);
 
         GoPluginApiRequest request = mock(GoPluginApiRequest.class);
         when(request.requestBody()).thenReturn("{scm-configuration: {url: {value: \"https://github.com/mdaliejaz/samplerepo.git\"}, username: {value: \"\"}, password: {value: \"\"}}, flyweight-folder: \"" + TEST_DIR + "\"}");
@@ -171,7 +171,7 @@ public class GitHubPRBuildPluginTest {
     @Test
     public void shouldGetLatestRevisionSince() {
         GitHubPRBuildPlugin plugin = new GitHubPRBuildPlugin();
-        plugin.setProvider(new GitHubProvider());
+        plugin.setGitRemoteProvider(new GitHubGitRemoteProvider());
         GitHubPRBuildPlugin pluginSpy = spy(plugin);
 
         GoPluginApiRequest request = mock(GoPluginApiRequest.class);
@@ -221,7 +221,7 @@ public class GitHubPRBuildPluginTest {
         GitFactory gitFactory = mock(GitFactory.class);
         GitFolderFactory gitFolderFactory = mock(GitFolderFactory.class);
         GitHubPRBuildPlugin plugin = new GitHubPRBuildPlugin(
-                new GitProvider(),
+                new GitGitRemoteProvider(),
                 gitFactory,
                 gitFolderFactory,
                 mockGoApplicationAccessor()
@@ -243,7 +243,7 @@ public class GitHubPRBuildPluginTest {
         GitFactory gitFactory = mock(GitFactory.class);
         GitFolderFactory gitFolderFactory = mock(GitFolderFactory.class);
         GitHubPRBuildPlugin plugin = new GitHubPRBuildPlugin(
-                new GitProvider(),
+                new GitGitRemoteProvider(),
                 gitFactory,
                 gitFolderFactory,
                 mockGoApplicationAccessor()
@@ -265,7 +265,7 @@ public class GitHubPRBuildPluginTest {
         GitFactory gitFactory = mock(GitFactory.class);
         GitFolderFactory gitFolderFactory = mock(GitFolderFactory.class);
         GitHubPRBuildPlugin plugin = new GitHubPRBuildPlugin(
-                new GerritProvider(),
+                new GerritGitRemoteProvider(),
                 gitFactory,
                 gitFolderFactory,
                 mockGoApplicationAccessor()
@@ -327,7 +327,7 @@ public class GitHubPRBuildPluginTest {
         Map request = createRequestMap(asList(new Pair("url", url)));
 
         GitHubPRBuildPlugin plugin = new GitHubPRBuildPlugin();
-        plugin.setProvider(new GitHubProvider());
+        plugin.setGitRemoteProvider(new GitHubGitRemoteProvider());
         GoPluginApiResponse response = plugin.handle(createGoPluginApiRequest(GitHubPRBuildPlugin.REQUEST_VALIDATE_SCM_CONFIGURATION, request));
 
         verifyResponse(response.responseBody(), null);

@@ -1,9 +1,9 @@
-package io.cogniflare.gocd.github.provider.stash;
+package io.cogniflare.gocd.github.provider.gerrit;
 
 import com.thoughtworks.go.plugin.api.GoPluginIdentifier;
 import com.tw.go.plugin.HelperFactory;
 import com.tw.go.plugin.model.GitConfig;
-import io.cogniflare.gocd.github.provider.Provider;
+import io.cogniflare.gocd.github.provider.GitRemoteProvider;
 import io.cogniflare.gocd.github.settings.general.DefaultGeneralPluginConfigurationView;
 import io.cogniflare.gocd.github.settings.general.GeneralPluginConfigurationView;
 import io.cogniflare.gocd.github.settings.scm.DefaultScmPluginConfigurationView;
@@ -13,18 +13,18 @@ import io.cogniflare.gocd.github.util.URLUtils;
 import java.util.Arrays;
 import java.util.Map;
 
-public class StashProvider implements Provider {
-    public static final String REF_SPEC = "+refs/pull-requests/*/from:refs/remotes/origin/pull-request/*";
-    public static final String REF_PATTERN = "refs/remotes/origin/pull-request/";
+public class GerritGitRemoteProvider implements GitRemoteProvider {
+    public static final String REF_SPEC = "+refs/changes/*:refs/changes/*";
+    public static final String REF_PATTERN = "refs/changes/";
 
     @Override
     public GoPluginIdentifier getPluginId() {
-        return new GoPluginIdentifier("stash.pr", Arrays.asList("1.0"));
+        return new GoPluginIdentifier("gerrit.cs", Arrays.asList("1.0"));
     }
 
     @Override
     public String getName() {
-        return "Stash";
+        return "Gerrit";
     }
 
     @Override
@@ -52,8 +52,8 @@ public class StashProvider implements Provider {
     }
 
     @Override
-    public void populateRevisionData(GitConfig gitConfig, String prId, String prSHA, Map<String, String> data) {
-        data.put("PR_ID", prId);
+    public void populateRevisionData(GitConfig gitConfig, String changeId, String latestSHA, Map<String, String> data) {
+        data.put("CHANGE_SET_ID", changeId);
     }
 
     @Override
