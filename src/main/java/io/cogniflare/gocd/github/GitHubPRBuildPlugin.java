@@ -190,11 +190,13 @@ public class GitHubPRBuildPlugin implements GoPlugin {
         try {
             GitHelper git = gitFactory.create(gitConfig, gitFolderFactory.create(flyweightFolder));
             git.cloneOrFetch(gitRemoteProvider.getRefSpec());
-            Revision revision = gitRemoteProvider.getLatestRelease(git);
+            String tag = gitRemoteProvider.getLatestRelease(gitConfig, git);
+            git.resetHard(tag);
+            Revision revision = git.getLatestRevision();
             git.submoduleUpdate();
 
             Map<String, Object> response = new HashMap<String, Object>();
-            Map<String, Object> revisionMap = getRevisionMap(gitConfig, revision);
+            Map<String, Object> revisionMap = getRevisionMap(gitConfig, revision, tag);
             response.put("revision", revisionMap);
             Map<String, String> scmDataMap = new HashMap<String, String>();
             response.put("scm-data", scmDataMap);
@@ -258,7 +260,7 @@ public class GitHubPRBuildPlugin implements GoPlugin {
                     }
                     List<Map<String, Object>> changesSinceLastCommit = Lists.map(
                             allRevisionsSince,
-                            revision -> getRevisionMap(gitConfig, revision)
+                            revision -> getRevisionMap(gitConfig, revision, tag)
                     );
                     revisions.addAll(changesSinceLastCommit);
                 } else {
@@ -284,7 +286,7 @@ public class GitHubPRBuildPlugin implements GoPlugin {
             revision.setModifiedFiles(Lists.of(new ModifiedFile("/dev/null", "deleted")));
         }
 
-        return getRevisionMap(gitConfig, revision);
+        return getRevisionMap(gitConfig, revision, tag);
     }
 
     private boolean branchHasNewChange(String previousSHA, String latestSHA) {
@@ -338,12 +340,7 @@ public class GitHubPRBuildPlugin implements GoPlugin {
         }
     }
 
-    Map<String, Object> getRevisionMap(GitConfig gitConfig, Revision revision) {
-        Map<String, Object> response = new HashMap<String, Object>();
-        response.put("revision", revision.getRevision());
-        response.put("user", revision.getUser());
-        response.put("timestamp", new SimpleDateFormat(DATE_PATTERN).format(revision.getTimestamp()));
-        response.put("revisionComment", revision.getComment());
+    Map<String, Object> getRevisionMap(GitConfig gitConfig, Revision revision, String tag) {
         List<Map<String, String>> modifiedFilesMapList = new ArrayList<>();
         if (!ListUtil.isEmpty(revision.getModifiedFiles())) {
             for (ModifiedFile modifiedFile : revision.getModifiedFiles()) {
@@ -353,9 +350,17 @@ public class GitHubPRBuildPlugin implements GoPlugin {
                 modifiedFilesMapList.add(modifiedFileMap);
             }
         }
-        response.put("modifiedFiles", modifiedFilesMapList);
+
         Map<String, String> customDataBag = new HashMap<String, String>();
-        gitRemoteProvider.populateRevisionData(gitConfig, revision.getRevision(), customDataBag);
+        customDataBag.put("RELEASE_TAG", tag);
+        gitRemoteProvider.populateRevisionData(gitConfig, revision,tag, customDataBag);
+
+        Map<String, Object> response = new HashMap<String, Object>();
+        response.put("revision", revision.getRevision());
+        response.put("user", revision.getUser());
+        response.put("timestamp", new SimpleDateFormat(DATE_PATTERN).format(revision.getTimestamp()));
+        response.put("revisionComment", revision.getComment());
+        response.put("modifiedFiles", modifiedFilesMapList);
         response.put("data", customDataBag);
         return response;
     }

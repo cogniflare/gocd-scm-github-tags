@@ -24,11 +24,11 @@ public interface GitRemoteProvider {
 
     String getRefPattern();
 
-    void populateRevisionData(GitConfig gitConfig, String prSHA, Map<String, String> data);
+    void populateRevisionData(GitConfig gitConfig, Revision prSHA, String tag, Map<String, String> data);
 
     ScmPluginConfigurationView getScmConfigurationView();
 
     GeneralPluginConfigurationView getGeneralConfigurationView();
 
-    Revision getLatestRelease(GitHelper git);
+    String getLatestRelease(GitConfig gitConfig, GitHelper git);
 }

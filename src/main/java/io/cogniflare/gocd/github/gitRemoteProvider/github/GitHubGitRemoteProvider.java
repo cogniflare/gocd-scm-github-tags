@@ -6,7 +6,6 @@ import com.tw.go.plugin.model.GitConfig;
 import com.tw.go.plugin.model.Revision;
 import com.tw.go.plugin.util.StringUtil;
 import io.cogniflare.gocd.github.gitRemoteProvider.GitRemoteProvider;
-import io.cogniflare.gocd.github.gitRemoteProvider.github.model.PullRequestStatus;
 import io.cogniflare.gocd.github.settings.general.DefaultGeneralPluginConfigurationView;
 import io.cogniflare.gocd.github.settings.general.GeneralPluginConfigurationView;
 import io.cogniflare.gocd.github.settings.scm.DefaultScmPluginConfigurationView;
@@ -14,16 +13,12 @@ import io.cogniflare.gocd.github.settings.scm.ScmPluginConfigurationView;
 import io.cogniflare.gocd.github.util.URLUtils;
 import in.ashwanthkumar.utils.func.Function;
 import in.ashwanthkumar.utils.lang.StringUtils;
-import org.kohsuke.github.GHPullRequest;
-import org.kohsuke.github.GHUser;
-import org.kohsuke.github.GitHub;
+import org.kohsuke.github.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 
 public class GitHubGitRemoteProvider implements GitRemoteProvider {
     private static final Logger LOG = LoggerFactory.getLogger(GitHubGitRemoteProvider.class);
@@ -83,24 +78,37 @@ public class GitHubGitRemoteProvider implements GitRemoteProvider {
     }
 
     @Override
-    public void populateRevisionData(GitConfig gitConfig, String prSHA, Map<String, String> data) {
+    public void populateRevisionData(GitConfig gitConfig, Revision prSHA, String tag, Map<String, String> data) {
 
-        PullRequestStatus prStatus = null;
         boolean isDisabled = System.getProperty("go.plugin.github.pr.populate-details", "Y").equals("N");
-        LOG.debug("Populating PR details is disabled");
-        if (!isDisabled) {
-//            prStatus = getPullRequestStatus(gitConfig, prId, prSHA);
+        if (isDisabled) {
+            LOG.debug("Populating PR details is disabled");
+            return;
         }
 
-        if (prStatus != null) {
-            data.put("PR_BRANCH", String.valueOf(prStatus.getPrBranch()));
-            data.put("TARGET_BRANCH", String.valueOf(prStatus.getToBranch()));
-            data.put("PR_URL", String.valueOf(prStatus.getUrl()));
-            data.put("PR_AUTHOR", prStatus.getAuthor());
-            data.put("PR_AUTHOR_EMAIL", prStatus.getAuthorEmail());
-            data.put("PR_DESCRIPTION", prStatus.getDescription());
-            data.put("PR_TITLE", prStatus.getTitle());
+        try {
+            Optional<GHRelease> release = getGithubReleaseForTag(gitConfig, tag);
+
+            if (!release.isPresent()) {
+                // TODO log error
+                return;
+            }
+
+            data.put("RELEASE_NAME", String.valueOf(release.get().getName()));
+            data.put("RELEASE_BODY", String.valueOf(release.get().getBody()));
+        } catch (IOException e) {
+            e.printStackTrace();
         }
+    }
+
+    private Optional<GHRelease> getGithubReleaseForTag(GitConfig gitConfig, String tag) throws IOException {
+        return loginWith(gitConfig)
+                .getRepository(GHUtils.parseGithubUrl(gitConfig.getEffectiveUrl()))
+                .listReleases()
+                .asList()
+                .stream()
+                .filter(rel -> Objects.equals(rel.getTagName(), tag))
+                .findAny();
     }
 
     @Override
@@ -114,8 +122,18 @@ public class GitHubGitRemoteProvider implements GitRemoteProvider {
     }
 
     @Override
-    public Revision getLatestRelease(GitHelper git) {
-        throw new UnsupportedOperationException();
+    public String getLatestRelease(GitConfig gitConfig, GitHelper git) {
+        try {
+            PagedIterable<GHRelease> releases = loginWith(gitConfig)
+                    .getRepository(GHUtils.parseGithubUrl(gitConfig.getEffectiveUrl()))
+                    .listReleases();
+            GHRelease latestRelease = releases.iterator().next();
+            String tag = latestRelease.getTagName();
+            return tag;
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new UnsupportedOperationException();
+        }
     }
 
     private PullRequestStatus getPullRequestStatus(GitConfig gitConfig, String prId, String prSHA) {
