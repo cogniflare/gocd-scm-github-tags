@@ -1,7 +1,9 @@
-package io.cogniflare.gocd.github.provider;
+package io.cogniflare.gocd.github.gitRemoteProvider;
 
 import com.thoughtworks.go.plugin.api.GoPluginIdentifier;
+import com.tw.go.plugin.GitHelper;
 import com.tw.go.plugin.model.GitConfig;
+import com.tw.go.plugin.model.Revision;
 import io.cogniflare.gocd.github.settings.general.GeneralPluginConfigurationView;
 import io.cogniflare.gocd.github.settings.scm.ScmPluginConfigurationView;
 
@@ -22,9 +24,11 @@ public interface GitRemoteProvider {
 
     String getRefPattern();
 
-    void populateRevisionData(GitConfig gitConfig, String prId, String prSHA, Map<String, String> data);
+    void populateRevisionData(GitConfig gitConfig, String prSHA, Map<String, String> data);
 
     ScmPluginConfigurationView getScmConfigurationView();
 
     GeneralPluginConfigurationView getGeneralConfigurationView();
+
+    Revision getLatestRelease(GitHelper git);
 }

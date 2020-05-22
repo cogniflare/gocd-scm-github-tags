@@ -1,8 +1,8 @@
-package io.cogniflare.gocd.github.provider.github;
+package io.cogniflare.gocd.github.gitRemoteProvider.github;
 
 import org.junit.Test;
 
-import static io.cogniflare.gocd.github.provider.github.GHUtils.parseGithubUrl;
+import static io.cogniflare.gocd.github.gitRemoteProvider.github.GHUtils.parseGithubUrl;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 

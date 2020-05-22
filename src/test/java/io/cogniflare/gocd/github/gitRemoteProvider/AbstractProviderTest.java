@@ -1,4 +1,4 @@
-package io.cogniflare.gocd.github.provider;
+package io.cogniflare.gocd.github.gitRemoteProvider;
 
 import io.cogniflare.gocd.github.settings.scm.PluginConfigurationView;
 

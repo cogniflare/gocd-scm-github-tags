@@ -1,6 +1,6 @@
-package io.cogniflare.gocd.github.provider.github.model;
+package io.cogniflare.gocd.github.gitRemoteProvider.github.model;
 
-import io.cogniflare.gocd.github.provider.github.GitHubGitRemoteProvider;
+import io.cogniflare.gocd.github.gitRemoteProvider.github.GitHubGitRemoteProvider;
 
 public class PullRequestStatus {
     private int id;

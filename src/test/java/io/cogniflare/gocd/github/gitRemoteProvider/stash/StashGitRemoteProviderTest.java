@@ -1,15 +1,15 @@
-package io.cogniflare.gocd.github.provider.gerrit;
+package io.cogniflare.gocd.github.gitRemoteProvider.stash;
 
-import io.cogniflare.gocd.github.provider.GitRemoteProvider;
+import io.cogniflare.gocd.github.gitRemoteProvider.AbstractProviderTest;
+import io.cogniflare.gocd.github.gitRemoteProvider.GitRemoteProvider;
 import io.cogniflare.gocd.github.settings.scm.PluginConfigurationView;
 import org.junit.Test;
 
 import static org.hamcrest.CoreMatchers.hasItems;
-import static org.hamcrest.core.Is.is;
+import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 
-
-public class GerritGitRemoteProviderTest extends io.cogniflare.gocd.github.provider.AbstractProviderTest {
+public class StashGitRemoteProviderTest extends AbstractProviderTest {
 
     @Test
     public void shouldReturnCorrectScmSettingsTemplate() throws Exception {
@@ -29,7 +29,7 @@ public class GerritGitRemoteProviderTest extends io.cogniflare.gocd.github.provi
     }
 
     @Test
-    public void shouldReturnCorrectGeneralSettingsTemplate() throws Exception {
+    public void  shouldReturnCorrectGeneralSettingsTemplate() throws Exception {
         PluginConfigurationView generalConfigurationView = getGeneralView();
 
         assertThat(generalConfigurationView.templateName(), is(""));
@@ -38,7 +38,6 @@ public class GerritGitRemoteProviderTest extends io.cogniflare.gocd.github.provi
 
     @Override
     protected GitRemoteProvider getProvider() {
-        return new GerritGitRemoteProvider();
+        return new StashGitRemoteProvider();
     }
-
 }

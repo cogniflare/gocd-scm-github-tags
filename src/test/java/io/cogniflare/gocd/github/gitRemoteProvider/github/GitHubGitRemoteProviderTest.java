@@ -1,7 +1,7 @@
-package io.cogniflare.gocd.github.provider.git;
+package io.cogniflare.gocd.github.gitRemoteProvider.github;
 
-import io.cogniflare.gocd.github.provider.AbstractProviderTest;
-import io.cogniflare.gocd.github.provider.GitRemoteProvider;
+import io.cogniflare.gocd.github.gitRemoteProvider.AbstractProviderTest;
+import io.cogniflare.gocd.github.gitRemoteProvider.GitRemoteProvider;
 import io.cogniflare.gocd.github.settings.scm.PluginConfigurationView;
 import org.junit.Test;
 
@@ -9,13 +9,13 @@ import static org.hamcrest.CoreMatchers.hasItems;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 
-public class GitGitRemoteProviderTest extends AbstractProviderTest {
+public class GitHubGitRemoteProviderTest extends AbstractProviderTest {
 
     @Test
     public void shouldReturnCorrectScmSettingsTemplate() throws Exception {
         PluginConfigurationView scmConfigurationView = getScmView();
 
-        assertThat(scmConfigurationView.templateName(), is("/views/scm.template.branch.filter.html"));;
+        assertThat(scmConfigurationView.templateName(), is("/views/scm.template.html"));;
     }
 
     @Test
@@ -23,9 +23,9 @@ public class GitGitRemoteProviderTest extends AbstractProviderTest {
         PluginConfigurationView scmConfigurationView = getScmView();
 
         assertThat(scmConfigurationView.fields().keySet(),
-                   hasItems("url", "username", "password", "branchwhitelist", "branchblacklist", "defaultBranch", "shallowClone")
+                   hasItems("url", "username", "password", "defaultBranch", "shallowClone")
         );
-        assertThat(scmConfigurationView.fields().size(), is(7));
+        assertThat(scmConfigurationView.fields().size(), is(5));
     }
 
     @Test
@@ -38,6 +38,7 @@ public class GitGitRemoteProviderTest extends AbstractProviderTest {
 
     @Override
     protected GitRemoteProvider getProvider() {
-        return new GitGitRemoteProvider();
+        return new GitHubGitRemoteProvider();
     }
+
 }

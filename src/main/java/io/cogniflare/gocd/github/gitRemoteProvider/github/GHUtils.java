@@ -1,9 +1,6 @@
-package io.cogniflare.gocd.github.provider.github;
+package io.cogniflare.gocd.github.gitRemoteProvider.github;
 
 import org.apache.commons.io.IOUtils;
-import org.eclipse.jgit.lib.Ref;
-import org.kohsuke.github.GitHub;
-import org.kohsuke.github.GitHubBuilder;
 
 import java.io.File;
 import java.io.FileInputStream;

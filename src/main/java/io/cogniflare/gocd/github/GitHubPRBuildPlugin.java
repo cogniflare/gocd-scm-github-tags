@@ -13,14 +13,13 @@ import com.tw.go.plugin.model.ModifiedFile;
 import com.tw.go.plugin.model.Revision;
 import com.tw.go.plugin.util.ListUtil;
 import com.tw.go.plugin.util.StringUtil;
-import io.cogniflare.gocd.github.provider.GitRemoteProvider;
+import io.cogniflare.gocd.github.gitRemoteProvider.GitRemoteProvider;
 import io.cogniflare.gocd.github.settings.scm.PluginConfigurationView;
 import io.cogniflare.gocd.github.util.BranchFilter;
 import io.cogniflare.gocd.github.util.GitFactory;
 import io.cogniflare.gocd.github.util.GitFolderFactory;
 import io.cogniflare.gocd.github.util.JSONUtils;
 import in.ashwanthkumar.utils.collections.Lists;
-import in.ashwanthkumar.utils.func.Function;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
 
@@ -159,12 +158,7 @@ public class GitHubPRBuildPlugin implements GoPlugin {
         final GitConfig gitConfig = getGitConfig(configuration);
 
         List<Map<String, Object>> response = new ArrayList<Map<String, Object>>();
-        validate(response, new FieldValidator() {
-            @Override
-            public void validate(Map<String, Object> fieldValidation) {
-                validateUrl(gitConfig, fieldValidation);
-            }
-        });
+        validate(response, (fieldValidation) -> validateUrl(gitConfig, fieldValidation));
         return renderJSON(SUCCESS_RESPONSE_CODE, response);
     }
 
@@ -196,16 +190,18 @@ public class GitHubPRBuildPlugin implements GoPlugin {
         try {
             GitHelper git = gitFactory.create(gitConfig, gitFolderFactory.create(flyweightFolder));
             git.cloneOrFetch(gitRemoteProvider.getRefSpec());
-            Revision revision = git.getLatestRevision();
+            Revision revision = gitRemoteProvider.getLatestRelease(git);
             git.submoduleUpdate();
 
             Map<String, Object> response = new HashMap<String, Object>();
-            String defaultBranch = (StringUtils.isEmpty(gitConfig.getBranch())) ? "master" : gitConfig.getBranch();
-            Map<String, Object> revisionMap = getRevisionMap(gitConfig, defaultBranch, revision);
+            Map<String, Object> revisionMap = getRevisionMap(gitConfig, revision);
             response.put("revision", revisionMap);
             Map<String, String> scmDataMap = new HashMap<String, String>();
             response.put("scm-data", scmDataMap);
-            LOGGER.info(String.format("Triggered build for " + defaultBranch + " with head at %s", revision.getRevision()));
+
+            // TODO pull from revisionMap
+            String tag = "1.2.3";
+            LOGGER.info(String.format("Triggered build for %s with head at %s", tag, revision.getRevision()));
             return renderJSON(SUCCESS_RESPONSE_CODE, response);
         } catch (Throwable t) {
             LOGGER.warn("get latest revision: ", t);
@@ -250,7 +246,7 @@ public class GitHubPRBuildPlugin implements GoPlugin {
 
             List<Map<String, Object>> revisions = new ArrayList<>();
             for (final String branch : newerRevisions.keySet()) {
-                String lastKnownSHA = lastKnownBranchToRevisionMap.get(branch);
+                String lastKnownSHA = "abc";
                 String latestSHA = newerRevisions.get(branch);
                 if (StringUtils.isNotEmpty(lastKnownSHA)) {
                     git.resetHard(latestSHA);
@@ -260,13 +256,9 @@ public class GitHubPRBuildPlugin implements GoPlugin {
                     } catch (Exception e) {
                         allRevisionsSince = Collections.singletonList(git.getLatestRevision());
                     }
-                    List<Map<String, Object>> changesSinceLastCommit = Lists.map(allRevisionsSince,
-                            new Function<Revision, Map<String, Object>>() {
-                                @Override
-                                public Map<String, Object> apply(Revision revision) {
-                                    return getRevisionMap(gitConfig, branch, revision);
-                                }
-                            }
+                    List<Map<String, Object>> changesSinceLastCommit = Lists.map(
+                            allRevisionsSince,
+                            revision -> getRevisionMap(gitConfig, revision)
                     );
                     revisions.addAll(changesSinceLastCommit);
                 } else {
@@ -278,7 +270,6 @@ public class GitHubPRBuildPlugin implements GoPlugin {
             Map<String, Object> response = new HashMap<>();
             response.put("revisions", revisions);
             Map<String, String> scmDataMap = new HashMap<>();
-            scmDataMap.put(BRANCH_TO_REVISION_MAP, JSONUtils.toJSON(oldBranchToRevisionMap));
             response.put("scm-data", scmDataMap);
             return renderJSON(SUCCESS_RESPONSE_CODE, response);
         } catch (Throwable t) {
@@ -293,7 +284,7 @@ public class GitHubPRBuildPlugin implements GoPlugin {
             revision.setModifiedFiles(Lists.of(new ModifiedFile("/dev/null", "deleted")));
         }
 
-        return getRevisionMap(gitConfig, branch, revision);
+        return getRevisionMap(gitConfig, revision);
     }
 
     private boolean branchHasNewChange(String previousSHA, String latestSHA) {
@@ -347,7 +338,7 @@ public class GitHubPRBuildPlugin implements GoPlugin {
         }
     }
 
-    Map<String, Object> getRevisionMap(GitConfig gitConfig, String branch, Revision revision) {
+    Map<String, Object> getRevisionMap(GitConfig gitConfig, Revision revision) {
         Map<String, Object> response = new HashMap<String, Object>();
         response.put("revision", revision.getRevision());
         response.put("user", revision.getUser());
@@ -364,7 +355,7 @@ public class GitHubPRBuildPlugin implements GoPlugin {
         }
         response.put("modifiedFiles", modifiedFilesMapList);
         Map<String, String> customDataBag = new HashMap<String, String>();
-        gitRemoteProvider.populateRevisionData(gitConfig, branch, revision.getRevision(), customDataBag);
+        gitRemoteProvider.populateRevisionData(gitConfig, revision.getRevision(), customDataBag);
         response.put("data", customDataBag);
         return response;
     }

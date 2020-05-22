@@ -1,10 +1,12 @@
-package io.cogniflare.gocd.github.provider.github;
+package io.cogniflare.gocd.github.gitRemoteProvider.github;
 
 import com.thoughtworks.go.plugin.api.GoPluginIdentifier;
+import com.tw.go.plugin.GitHelper;
 import com.tw.go.plugin.model.GitConfig;
+import com.tw.go.plugin.model.Revision;
 import com.tw.go.plugin.util.StringUtil;
-import io.cogniflare.gocd.github.provider.GitRemoteProvider;
-import io.cogniflare.gocd.github.provider.github.model.PullRequestStatus;
+import io.cogniflare.gocd.github.gitRemoteProvider.GitRemoteProvider;
+import io.cogniflare.gocd.github.gitRemoteProvider.github.model.PullRequestStatus;
 import io.cogniflare.gocd.github.settings.general.DefaultGeneralPluginConfigurationView;
 import io.cogniflare.gocd.github.settings.general.GeneralPluginConfigurationView;
 import io.cogniflare.gocd.github.settings.scm.DefaultScmPluginConfigurationView;
@@ -81,14 +83,13 @@ public class GitHubGitRemoteProvider implements GitRemoteProvider {
     }
 
     @Override
-    public void populateRevisionData(GitConfig gitConfig, String prId, String prSHA, Map<String, String> data) {
-        data.put("PR_ID", prId);
+    public void populateRevisionData(GitConfig gitConfig, String prSHA, Map<String, String> data) {
 
         PullRequestStatus prStatus = null;
         boolean isDisabled = System.getProperty("go.plugin.github.pr.populate-details", "Y").equals("N");
         LOG.debug("Populating PR details is disabled");
         if (!isDisabled) {
-            prStatus = getPullRequestStatus(gitConfig, prId, prSHA);
+//            prStatus = getPullRequestStatus(gitConfig, prId, prSHA);
         }
 
         if (prStatus != null) {
@@ -112,6 +113,11 @@ public class GitHubGitRemoteProvider implements GitRemoteProvider {
         return new DefaultGeneralPluginConfigurationView();
     }
 
+    @Override
+    public Revision getLatestRelease(GitHelper git) {
+        throw new UnsupportedOperationException();
+    }
+
     private PullRequestStatus getPullRequestStatus(GitConfig gitConfig, String prId, String prSHA) {
         try {
             GHPullRequest currentPR = pullRequestFrom(gitConfig, Integer.parseInt(prId));
@@ -130,18 +136,15 @@ public class GitHubGitRemoteProvider implements GitRemoteProvider {
     }
 
     private Function<GHPullRequest, PullRequestStatus> transformGHPullRequestToPullRequestStatus(final String mergedSHA) {
-        return new Function<GHPullRequest, PullRequestStatus>() {
-            @Override
-            public PullRequestStatus apply(GHPullRequest input) {
-                int prID = GHUtils.prIdFrom(input.getDiffUrl().toString());
-                try {
-                    GHUser user = input.getUser();
-                    return new PullRequestStatus(prID, input.getHead().getSha(), mergedSHA, input.getHead().getLabel(),
-                            input.getBase().getLabel(), input.getHtmlUrl().toString(), user.getName(),
-                            user.getEmail(), input.getBody(), input.getTitle());
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+        return input -> {
+            int prID = GHUtils.prIdFrom(input.getDiffUrl().toString());
+            try {
+                GHUser user = input.getUser();
+                return new PullRequestStatus(prID, input.getHead().getSha(), mergedSHA, input.getHead().getLabel(),
+                        input.getBase().getLabel(), input.getHtmlUrl().toString(), user.getName(),
+                        user.getEmail(), input.getBody(), input.getTitle());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
         };
     }

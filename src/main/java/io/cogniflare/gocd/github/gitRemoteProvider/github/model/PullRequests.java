@@ -1,4 +1,4 @@
-package io.cogniflare.gocd.github.provider.github.model;
+package io.cogniflare.gocd.github.gitRemoteProvider.github.model;
 
 import in.ashwanthkumar.utils.func.Function;
 import in.ashwanthkumar.utils.lang.option.Option;
