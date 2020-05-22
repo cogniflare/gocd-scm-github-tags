@@ -26,6 +26,7 @@ import org.apache.commons.lang.StringUtils;
 
 import java.io.IOException;
 import java.lang.reflect.Constructor;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -34,7 +35,7 @@ import static java.util.Arrays.asList;
 
 @Extension
 public class GitHubPRBuildPlugin implements GoPlugin {
-    private static Logger LOGGER = Logger.getLoggerFor(GitHubPRBuildPlugin.class);
+    private static final Logger LOGGER = Logger.getLoggerFor(GitHubPRBuildPlugin.class);
 
     public static final String EXTENSION_NAME = "scm";
     private static final List<String> goSupportedVersions = asList("1.0");
@@ -46,8 +47,6 @@ public class GitHubPRBuildPlugin implements GoPlugin {
     public static final String REQUEST_PLUGIN_CONFIGURATION = "go.plugin-settings.get-configuration";
     public static final String REQUEST_PLUGIN_VIEW = "go.plugin-settings.get-view";
     public static final String REQUEST_VALIDATE_PLUGIN_CONFIGURATION = "go.plugin-settings.validate-configuration";
-
-    public static final String GET_PLUGIN_SETTINGS = "go.processor.plugin-settings.get";
 
     public static final String REQUEST_LATEST_REVISION = "latest-revision";
     public static final String REQUEST_LATEST_REVISIONS_SINCE = "latest-revisions-since";
@@ -61,8 +60,8 @@ public class GitHubPRBuildPlugin implements GoPlugin {
     public static final int INTERNAL_ERROR_RESPONSE_CODE = 500;
 
     private Provider provider;
-    private GitFactory gitFactory;
-    private GitFolderFactory gitFolderFactory;
+    private final GitFactory gitFactory;
+    private final GitFolderFactory gitFolderFactory;
     private GoApplicationAccessor goApplicationAccessor;
 
     public GitHubPRBuildPlugin() {
@@ -96,25 +95,25 @@ public class GitHubPRBuildPlugin implements GoPlugin {
     public GoPluginApiResponse handle(GoPluginApiRequest goPluginApiRequest) {
         switch (goPluginApiRequest.requestName()) {
             case REQUEST_SCM_CONFIGURATION:
-                return handleSCMConfiguration();
+                return getPluginConfiguration(provider.getScmConfigurationView());
             case REQUEST_SCM_VIEW:
                 try {
-                    return handleSCMView();
+                    return getPluginView(provider, provider.getScmConfigurationView());
                 } catch (IOException e) {
                     String message = "Failed to find template: " + e.getMessage();
                     return renderJSON(INTERNAL_ERROR_RESPONSE_CODE, message);
                 }
             case REQUEST_PLUGIN_CONFIGURATION:
-                return handlePluginConfiguration();
+                return getPluginConfiguration(provider.getGeneralConfigurationView());
             case REQUEST_PLUGIN_VIEW:
                 try {
-                    return handlePluginView();
+                    return getPluginView(provider, provider.getGeneralConfigurationView());
                 } catch (IOException e) {
                     String message = "Failed to find template: " + e.getMessage();
                     return renderJSON(INTERNAL_ERROR_RESPONSE_CODE, message);
                 }
             case REQUEST_VALIDATE_PLUGIN_CONFIGURATION:
-                return handlePluginValidation(goPluginApiRequest);
+                return renderJSON(SUCCESS_RESPONSE_CODE, Collections.emptyList());
             case REQUEST_VALIDATE_SCM_CONFIGURATION:
                 return handleSCMValidation(goPluginApiRequest);
             case REQUEST_CHECK_SCM_CONNECTION:
@@ -129,10 +128,6 @@ public class GitHubPRBuildPlugin implements GoPlugin {
         return renderJSON(NOT_FOUND_RESPONSE_CODE, null);
     }
 
-    private GoPluginApiResponse handlePluginValidation(GoPluginApiRequest goPluginApiRequest) {
-        return renderJSON(SUCCESS_RESPONSE_CODE, Collections.emptyList());
-    }
-
     @Override
     public GoPluginIdentifier pluginIdentifier() {
         return new GoPluginIdentifier(EXTENSION_NAME, goSupportedVersions);
@@ -140,22 +135,6 @@ public class GitHubPRBuildPlugin implements GoPlugin {
 
     void setProvider(Provider provider) {
         this.provider = provider;
-    }
-
-    private GoPluginApiResponse handlePluginView() throws IOException {
-        return getPluginView(provider, provider.getGeneralConfigurationView());
-    }
-
-    private GoPluginApiResponse handlePluginConfiguration() {
-        return getPluginConfiguration(provider.getGeneralConfigurationView());
-    }
-
-    private GoPluginApiResponse handleSCMView() throws IOException {
-        return getPluginView(provider, provider.getScmConfigurationView());
-    }
-
-    private GoPluginApiResponse handleSCMConfiguration() {
-        return getPluginConfiguration(provider.getScmConfigurationView());
     }
 
     private GoPluginApiResponse getPluginView(Provider provider, PluginConfigurationView view) throws IOException {
@@ -399,7 +378,8 @@ public class GitHubPRBuildPlugin implements GoPlugin {
                 configuration.get("password"),
                 StringUtils.trimToNull(configuration.get("defaultBranch")),
                 true,
-                Boolean.parseBoolean(configuration.get("shallowClone")));
+                Boolean.parseBoolean(configuration.get("shallowClone"))
+        );
         provider.addConfigData(gitConfig);
         return gitConfig;
     }
@@ -418,7 +398,7 @@ public class GitHubPRBuildPlugin implements GoPlugin {
         response.put("user", revision.getUser());
         response.put("timestamp", new SimpleDateFormat(DATE_PATTERN).format(revision.getTimestamp()));
         response.put("revisionComment", revision.getComment());
-        List<Map> modifiedFilesMapList = new ArrayList<Map>();
+        List<Map<String, String>> modifiedFilesMapList = new ArrayList<>();
         if (!ListUtil.isEmpty(revision.getModifiedFiles())) {
             for (ModifiedFile modifiedFile : revision.getModifiedFiles()) {
                 Map<String, String> modifiedFileMap = new HashMap<String, String>();
@@ -473,10 +453,10 @@ public class GitHubPRBuildPlugin implements GoPlugin {
     }
 
     private String getFileContents(String filePath) throws IOException {
-        return IOUtils.toString(getClass().getResourceAsStream(filePath), "UTF-8");
+        return IOUtils.toString(getClass().getResourceAsStream(filePath), StandardCharsets.UTF_8);
     }
 
-    GoPluginApiResponse renderJSON(final int responseCode, Object response) {
+    private GoPluginApiResponse renderJSON(final int responseCode, Object response) {
         final String json = response == null ? null : JSONUtils.toJSON(response);
         return new GoPluginApiResponse() {
             @Override
