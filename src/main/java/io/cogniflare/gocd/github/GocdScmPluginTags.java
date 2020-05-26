@@ -33,8 +33,8 @@ import static io.cogniflare.gocd.github.util.JSONUtils.fromJSON;
 import static java.util.Arrays.asList;
 
 @Extension
-public class GitHubPRBuildPlugin implements GoPlugin {
-    private static final Logger LOGGER = Logger.getLoggerFor(GitHubPRBuildPlugin.class);
+public class GocdScmPluginTags implements GoPlugin {
+    private static final Logger LOGGER = Logger.getLoggerFor(GocdScmPluginTags.class);
 
     public static final String EXTENSION_NAME = "scm";
     private static final List<String> goSupportedVersions = asList("1.0");
@@ -63,7 +63,7 @@ public class GitHubPRBuildPlugin implements GoPlugin {
     private final GitFolderFactory gitFolderFactory;
     private GoApplicationAccessor goApplicationAccessor;
 
-    public GitHubPRBuildPlugin() {
+    public GocdScmPluginTags() {
         try {
             Properties properties = new Properties();
             properties.load(getClass().getResourceAsStream("/defaults.properties"));
@@ -78,7 +78,7 @@ public class GitHubPRBuildPlugin implements GoPlugin {
         }
     }
 
-    public GitHubPRBuildPlugin(GitRemoteProvider gitRemoteProvider, GitFactory gitFactory, GitFolderFactory gitFolderFactory, GoApplicationAccessor goApplicationAccessor) {
+    public GocdScmPluginTags(GitRemoteProvider gitRemoteProvider, GitFactory gitFactory, GitFolderFactory gitFolderFactory, GoApplicationAccessor goApplicationAccessor) {
         this.gitRemoteProvider = gitRemoteProvider;
         this.gitFactory = gitFactory;
         this.gitFolderFactory = gitFolderFactory;
