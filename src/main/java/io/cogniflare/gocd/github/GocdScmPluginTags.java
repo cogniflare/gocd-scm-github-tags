@@ -51,7 +51,6 @@ public class GocdScmPluginTags implements GoPlugin {
     public static final String REQUEST_LATEST_REVISIONS_SINCE = "latest-revisions-since";
     public static final String REQUEST_CHECKOUT = "checkout";
 
-    public static final String BRANCH_TO_REVISION_MAP = "BRANCH_TO_REVISION_MAP";
     private static final String DATE_PATTERN = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'";
 
     public static final int SUCCESS_RESPONSE_CODE = 200;
@@ -68,12 +67,13 @@ public class GocdScmPluginTags implements GoPlugin {
             Properties properties = new Properties();
             properties.load(getClass().getResourceAsStream("/defaults.properties"));
 
-            Class<?> providerClass = Class.forName(properties.getProperty("provider"));
+            Class<?> providerClass = Class.forName(properties.getProperty("gitRemoteProvider"));
             Constructor<?> constructor = providerClass.getConstructor();
             gitRemoteProvider = (GitRemoteProvider) constructor.newInstance();
             gitFactory = new GitFactory();
             gitFolderFactory = new GitFolderFactory();
         } catch (Exception e) {
+            LOGGER.error("could not create provider", e);
             throw new RuntimeException("could not create provider", e);
         }
     }
