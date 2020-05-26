@@ -13,15 +13,15 @@ import com.tw.go.plugin.model.ModifiedFile;
 import com.tw.go.plugin.model.Revision;
 import com.tw.go.plugin.util.ListUtil;
 import com.tw.go.plugin.util.StringUtil;
+import in.ashwanthkumar.utils.collections.Lists;
 import io.cogniflare.gocd.github.gitRemoteProvider.GitRemoteProvider;
 import io.cogniflare.gocd.github.settings.scm.PluginConfigurationView;
-import io.cogniflare.gocd.github.util.BranchFilter;
 import io.cogniflare.gocd.github.util.GitFactory;
 import io.cogniflare.gocd.github.util.GitFolderFactory;
 import io.cogniflare.gocd.github.util.JSONUtils;
-import in.ashwanthkumar.utils.collections.Lists;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.lang.reflect.Constructor;
@@ -195,23 +195,66 @@ public class GitHubPRBuildPlugin implements GoPlugin {
             Revision revision = git.getLatestRevision();
             git.submoduleUpdate();
 
-            Map<String, Object> response = new HashMap<String, Object>();
             Map<String, Object> revisionMap = getRevisionMap(gitConfig, revision, tag);
-            response.put("revision", revisionMap);
+            Map<String, Object> response = new HashMap<String, Object>();
             Map<String, String> scmDataMap = new HashMap<String, String>();
+
+            response.put("revision", revisionMap);
             response.put("scm-data", scmDataMap);
 
-            // TODO pull from revisionMap
-            String tag = "1.2.3";
             LOGGER.info(String.format("Triggered build for %s with head at %s", tag, revision.getRevision()));
             return renderJSON(SUCCESS_RESPONSE_CODE, response);
         } catch (Throwable t) {
-            LOGGER.warn("get latest revision: ", t);
-            return renderJSON(INTERNAL_ERROR_RESPONSE_CODE, removeUsernameAndPassword(t.getMessage(), gitConfig));
+            LOGGER.error("get latest revision: ", t);
+            return renderJSON(INTERNAL_ERROR_RESPONSE_CODE, maskSecretsInString(t.getMessage(), gitConfig));
         }
     }
 
-    private String removeUsernameAndPassword(String message, GitConfig gitConfig) {
+    GoPluginApiResponse handleLatestRevisionSince(GoPluginApiRequest goPluginApiRequest) {
+        Map<String, Object> requestBodyMap = (Map<String, Object>) fromJSON(goPluginApiRequest.requestBody());
+        Map<String, String> configuration = keyValuePairs(requestBodyMap, "scm-configuration");
+        Map<String, String> previousRevision = keyValuePairs(requestBodyMap, "previous-revision");
+        final GitConfig gitConfig = getGitConfig(configuration);
+        String flyweightFolder = (String) requestBodyMap.get("flyweight-folder");
+        LOGGER.debug(String.format("Fetching latest for: %s", gitConfig.getUrl()));
+
+        try {
+            GitHelper git = gitFactory.create(gitConfig, gitFolderFactory.create(flyweightFolder));
+            git.cloneOrFetch(gitRemoteProvider.getRefSpec());
+            String tag = gitRemoteProvider.getLatestRelease(gitConfig, git);
+            git.resetHard(tag); // we can use tag name instead of SHA
+            Revision revision = git.getLatestRevision();
+            git.submoduleUpdate();
+
+            String prevSHA = previousRevision.get("revision");
+            List<Revision> allRevisionsSince;
+            try {
+                allRevisionsSince = git.getRevisionsSince(prevSHA);
+            } catch (Exception e) {
+                LOGGER.warn(String.format("Failed to get revisions since: %s for tag: %s", prevSHA, tag));
+                allRevisionsSince = Collections.singletonList(revision);
+            }
+
+            List<Map<String, Object>> revisions = Lists.map(
+                    allRevisionsSince,
+                    rev -> getRevisionMap(gitConfig, rev, null)
+            );
+
+            revisions.set(0, getRevisionMap(gitConfig, revision, tag));
+
+            Map<String, Object> response = new HashMap<>();
+            Map<String, String> scmDataMap = new HashMap<>();
+
+            response.put("revisions", revisions);
+            response.put("scm-data", scmDataMap);
+            return renderJSON(SUCCESS_RESPONSE_CODE, response);
+        } catch (Throwable t) {
+            LOGGER.error("get latest revisions since: ", t);
+            return renderJSON(INTERNAL_ERROR_RESPONSE_CODE, maskSecretsInString(t.getMessage(), gitConfig));
+        }
+    }
+
+    private String maskSecretsInString(String message, GitConfig gitConfig) {
         String messageForDisplay = message;
         String password = gitConfig.getPassword();
         if (StringUtils.isNotBlank(password)) {
@@ -224,74 +267,6 @@ public class GitHubPRBuildPlugin implements GoPlugin {
         return messageForDisplay;
     }
 
-    GoPluginApiResponse handleLatestRevisionSince(GoPluginApiRequest goPluginApiRequest) {
-        Map<String, Object> requestBodyMap = (Map<String, Object>) fromJSON(goPluginApiRequest.requestBody());
-        Map<String, String> configuration = keyValuePairs(requestBodyMap, "scm-configuration");
-        final GitConfig gitConfig = getGitConfig(configuration);
-        Map<String, String> scmData = (Map<String, String>) requestBodyMap.get("scm-data");
-        String flyweightFolder = (String) requestBodyMap.get("flyweight-folder");
-        LOGGER.debug(String.format("Fetching latest for: %s", gitConfig.getUrl()));
-
-        try {
-            GitHelper git = gitFactory.create(gitConfig, gitFolderFactory.create(flyweightFolder));
-            git.cloneOrFetch(gitRemoteProvider.getRefSpec());
-            git.submoduleUpdate();
-
-            Map<String, String> newerRevisions = new HashMap<String, String>();
-
-            // TODO tag filter
-            BranchFilter branchFilter = gitRemoteProvider
-                    .getScmConfigurationView()
-                    .getBranchFilter(configuration);
-
-            LOGGER.info(String.format("new commits: %d", newerRevisions.size()));
-
-            List<Map<String, Object>> revisions = new ArrayList<>();
-            for (final String branch : newerRevisions.keySet()) {
-                String lastKnownSHA = "abc";
-                String latestSHA = newerRevisions.get(branch);
-                if (StringUtils.isNotEmpty(lastKnownSHA)) {
-                    git.resetHard(latestSHA);
-                    List<Revision> allRevisionsSince;
-                    try {
-                        allRevisionsSince = git.getRevisionsSince(lastKnownSHA);
-                    } catch (Exception e) {
-                        allRevisionsSince = Collections.singletonList(git.getLatestRevision());
-                    }
-                    List<Map<String, Object>> changesSinceLastCommit = Lists.map(
-                            allRevisionsSince,
-                            revision -> getRevisionMap(gitConfig, revision, tag)
-                    );
-                    revisions.addAll(changesSinceLastCommit);
-                } else {
-                    Revision revision = git.getDetailsForRevision(latestSHA);
-                    Map<String, Object> revisionMap = getRevisionMapForSHA(gitConfig, branch, revision);
-                    revisions.add(revisionMap);
-                }
-            }
-            Map<String, Object> response = new HashMap<>();
-            response.put("revisions", revisions);
-            Map<String, String> scmDataMap = new HashMap<>();
-            response.put("scm-data", scmDataMap);
-            return renderJSON(SUCCESS_RESPONSE_CODE, response);
-        } catch (Throwable t) {
-            LOGGER.warn("get latest revisions since: ", t);
-            return renderJSON(INTERNAL_ERROR_RESPONSE_CODE, removeUsernameAndPassword(t.getMessage(), gitConfig));
-        }
-    }
-
-    private Map<String, Object> getRevisionMapForSHA(GitConfig gitConfig, String branch, Revision revision) {
-        // patch for building merge commits
-        if (revision.isMergeCommit() && ListUtil.isEmpty(revision.getModifiedFiles())) {
-            revision.setModifiedFiles(Lists.of(new ModifiedFile("/dev/null", "deleted")));
-        }
-
-        return getRevisionMap(gitConfig, revision, tag);
-    }
-
-    private boolean branchHasNewChange(String previousSHA, String latestSHA) {
-        return previousSHA == null || !previousSHA.equals(latestSHA);
-    }
 
     private GoPluginApiResponse handleCheckout(GoPluginApiRequest goPluginApiRequest) {
         Map<String, Object> requestBodyMap = (Map<String, Object>) fromJSON(goPluginApiRequest.requestBody());
@@ -340,7 +315,7 @@ public class GitHubPRBuildPlugin implements GoPlugin {
         }
     }
 
-    Map<String, Object> getRevisionMap(GitConfig gitConfig, Revision revision, String tag) {
+    Map<String, Object> getRevisionMap(GitConfig gitConfig, Revision revision, @Nullable String tag) {
         List<Map<String, String>> modifiedFilesMapList = new ArrayList<>();
         if (!ListUtil.isEmpty(revision.getModifiedFiles())) {
             for (ModifiedFile modifiedFile : revision.getModifiedFiles()) {
@@ -352,8 +327,11 @@ public class GitHubPRBuildPlugin implements GoPlugin {
         }
 
         Map<String, String> customDataBag = new HashMap<String, String>();
-        customDataBag.put("RELEASE_TAG", tag);
-        gitRemoteProvider.populateRevisionData(gitConfig, revision,tag, customDataBag);
+
+        if (tag != null) {
+            customDataBag.put("RELEASE_TAG", tag);
+            gitRemoteProvider.populateReleaseData(gitConfig, revision, tag, customDataBag);
+        }
 
         Map<String, Object> response = new HashMap<String, Object>();
         response.put("revision", revision.getRevision());
@@ -380,7 +358,7 @@ public class GitHubPRBuildPlugin implements GoPlugin {
         if (StringUtil.isEmpty(gitConfig.getUrl())) {
             fieldMap.put("key", "url");
             fieldMap.put("message", "URL is a required field");
-        } else if (!gitRemoteProvider.isValidURL(gitConfig.getUrl())) {
+        } else if (gitRemoteProvider.isInvalidURL(gitConfig.getUrl())) {
             fieldMap.put("key", "url");
             fieldMap.put("message", "Invalid URL");
         }
@@ -390,7 +368,7 @@ public class GitHubPRBuildPlugin implements GoPlugin {
         if (StringUtil.isEmpty(gitConfig.getUrl())) {
             response.put("status", "failure");
             messages.add("URL is empty");
-        } else if (!gitRemoteProvider.isValidURL(gitConfig.getUrl())) {
+        } else if (gitRemoteProvider.isInvalidURL(gitConfig.getUrl())) {
             response.put("status", "failure");
             messages.add("Invalid URL");
         } else {

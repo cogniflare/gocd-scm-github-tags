@@ -2,9 +2,11 @@
 <go-plugin id="github.tags" version="1">
     <about>
         <name>Github Tags Pooler</name>
-        <version>${version}</version>
+        <version>${project.version}</version>
         <target-go-version>15.1.0</target-go-version>
-        <description>Plugin that polls a GitHub repository for tags (releases) and triggers a build for each of them</description>
+        <description>
+            Plugin that polls a GitHub repository for tags (releases) and triggers a build for each of them
+        </description>
         <vendor>
             <name>Cogniflare.io</name>
             <url>https://github.com/cogniflare/gocd-scm-github-tags</url>

@@ -1,37 +1,33 @@
 package io.cogniflare.gocd.github.gitRemoteProvider.github;
 
-import com.thoughtworks.go.plugin.api.GoPluginIdentifier;
 import com.tw.go.plugin.GitHelper;
 import com.tw.go.plugin.model.GitConfig;
 import com.tw.go.plugin.model.Revision;
 import com.tw.go.plugin.util.StringUtil;
+import in.ashwanthkumar.utils.lang.StringUtils;
 import io.cogniflare.gocd.github.gitRemoteProvider.GitRemoteProvider;
 import io.cogniflare.gocd.github.settings.general.DefaultGeneralPluginConfigurationView;
 import io.cogniflare.gocd.github.settings.general.GeneralPluginConfigurationView;
 import io.cogniflare.gocd.github.settings.scm.DefaultScmPluginConfigurationView;
 import io.cogniflare.gocd.github.settings.scm.ScmPluginConfigurationView;
 import io.cogniflare.gocd.github.util.URLUtils;
-import in.ashwanthkumar.utils.func.Function;
-import in.ashwanthkumar.utils.lang.StringUtils;
-import org.kohsuke.github.*;
+import org.kohsuke.github.GHRelease;
+import org.kohsuke.github.GitHub;
+import org.kohsuke.github.PagedIterable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.*;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Properties;
 
 public class GitHubGitRemoteProvider implements GitRemoteProvider {
     private static final Logger LOG = LoggerFactory.getLogger(GitHubGitRemoteProvider.class);
-    // public static final String PR_FETCH_REFSPEC = "+refs/pull/*/merge:refs/gh-merge/remotes/origin/*";
-    // public static final String PR_MERGE_PREFIX = "refs/gh-merge/remotes/origin/";
-    public static final String REF_SPEC = "+refs/pull/*/head:refs/remotes/origin/pull-request/*";
-    public static final String REF_PATTERN = "refs/remotes/origin/pull-request/";
-    public static final String PUBLIC_GITHUB_ENDPOINT = "https://api.github.com";
-
-    @Override
-    public GoPluginIdentifier getPluginId() {
-        return new GoPluginIdentifier("github.pr", Arrays.asList("1.0"));
-    }
+    public static final String REF_SPEC = "refs/tags/*:refs/tags/*";
 
     @Override
     public String getName() {
@@ -54,8 +50,8 @@ public class GitHubGitRemoteProvider implements GitRemoteProvider {
     }
 
     @Override
-    public boolean isValidURL(String url) {
-        return new URLUtils().isValidURL(url);
+    public boolean isInvalidURL(String url) {
+        return !new URLUtils().isValidURL(url);
     }
 
     @Override
@@ -67,18 +63,19 @@ public class GitHubGitRemoteProvider implements GitRemoteProvider {
         }
     }
 
+    private static String getDomainName(String url) throws URISyntaxException {
+        URI uri = new URI(url);
+        String domain = uri.getHost();
+        return domain.startsWith("www.") ? domain.substring(4) : domain;
+    }
+
     @Override
     public String getRefSpec() {
         return REF_SPEC;
     }
 
     @Override
-    public String getRefPattern() {
-        return REF_PATTERN;
-    }
-
-    @Override
-    public void populateRevisionData(GitConfig gitConfig, Revision prSHA, String tag, Map<String, String> data) {
+    public void populateReleaseData(GitConfig gitConfig, Revision prSHA, String tag, Map<String, String> data) {
 
         boolean isDisabled = System.getProperty("go.plugin.github.pr.populate-details", "Y").equals("N");
         if (isDisabled) {
@@ -90,7 +87,7 @@ public class GitHubGitRemoteProvider implements GitRemoteProvider {
             Optional<GHRelease> release = getGithubReleaseForTag(gitConfig, tag);
 
             if (!release.isPresent()) {
-                // TODO log error
+                LOG.error(String.format("Cannot find release: %s", tag));
                 return;
             }
 
@@ -122,55 +119,55 @@ public class GitHubGitRemoteProvider implements GitRemoteProvider {
     }
 
     @Override
-    public String getLatestRelease(GitConfig gitConfig, GitHelper git) {
-        try {
-            PagedIterable<GHRelease> releases = loginWith(gitConfig)
-                    .getRepository(GHUtils.parseGithubUrl(gitConfig.getEffectiveUrl()))
-                    .listReleases();
-            GHRelease latestRelease = releases.iterator().next();
-            String tag = latestRelease.getTagName();
-            return tag;
-        } catch (IOException e) {
-            e.printStackTrace();
-            throw new UnsupportedOperationException();
-        }
-    }
-
-    private PullRequestStatus getPullRequestStatus(GitConfig gitConfig, String prId, String prSHA) {
-        try {
-            GHPullRequest currentPR = pullRequestFrom(gitConfig, Integer.parseInt(prId));
-            return transformGHPullRequestToPullRequestStatus(prSHA).apply(currentPR);
-        } catch (Exception e) {
-            // ignore
-            LOG.warn(e.getMessage(), e);
-        }
-        return null;
-    }
-
-    private GHPullRequest pullRequestFrom(GitConfig gitConfig, int currentPullRequestID) throws IOException {
-        return loginWith(gitConfig)
+    public String getLatestRelease(GitConfig gitConfig, GitHelper git) throws IOException {
+        PagedIterable<GHRelease> releases = loginWith(gitConfig)
                 .getRepository(GHUtils.parseGithubUrl(gitConfig.getEffectiveUrl()))
-                .getPullRequest(currentPullRequestID);
-    }
+                .listReleases();
 
-    private Function<GHPullRequest, PullRequestStatus> transformGHPullRequestToPullRequestStatus(final String mergedSHA) {
-        return input -> {
-            int prID = GHUtils.prIdFrom(input.getDiffUrl().toString());
-            try {
-                GHUser user = input.getUser();
-                return new PullRequestStatus(prID, input.getHead().getSha(), mergedSHA, input.getHead().getLabel(),
-                        input.getBase().getLabel(), input.getHtmlUrl().toString(), user.getName(),
-                        user.getEmail(), input.getBody(), input.getTitle());
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        };
+        // assumes github api order to present latest release first
+        GHRelease latestRelease = releases.iterator().next();
+        return latestRelease.getTagName();
     }
 
     private GitHub loginWith(GitConfig gitConfig) throws IOException {
-        if (hasCredentials(gitConfig))
+        if (!hasCredentials(gitConfig)) {
+            return GitHub.connect();
+        }
+
+        // Cloud auth methods
+        try {
             return GitHub.connectUsingPassword(gitConfig.getUsername(), gitConfig.getPassword());
-        else return GitHub.connect();
+        } catch (Exception t) {
+            LOG.trace("Cannot authenticate to GitHub cloud using password", t);
+        }
+        try {
+            return GitHub.connect(gitConfig.getUsername(), gitConfig.getPassword());
+        } catch (Exception t) {
+            LOG.trace("Cannot authenticate to GitHub cloud using oAuth", t);
+        }
+
+        // Enterprise auth methods
+        try {
+            String url = gitConfig.getUrl();
+            String domain = getDomainName(url);
+            String apiEndpoint = String.format("https://%s/api/v3/", domain);
+
+            try {
+                return GitHub.connectToEnterprise(apiEndpoint, gitConfig.getUsername(), gitConfig.getPassword());
+            } catch (Exception t) {
+                LOG.trace(String.format("Cannot authenticate to GitHub enterprise (%s) using password", apiEndpoint), t);
+            }
+            try {
+                return GitHub.connectToEnterprise(apiEndpoint, gitConfig.getPassword());
+            } catch (Exception t) {
+                LOG.trace(String.format("Cannot authenticate to GitHub enterprise (%s) using oAuth", apiEndpoint), t);
+            }
+
+        } catch (URISyntaxException e) {
+            LOG.trace("Cannot get repository domain name", e);
+        }
+
+        throw new IOException("Cannot authenticate to github repository.");
     }
 
     private boolean hasCredentials(GitConfig gitConfig) {

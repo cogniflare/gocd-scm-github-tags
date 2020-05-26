@@ -42,6 +42,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <version>19.0.0</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
             <version>1.8.5</version>
@@ -88,7 +94,7 @@
     </profiles>
 
     <build>
-        <finalName>${plugin.name}-${version}</finalName>
+        <finalName>${plugin.name}-${project.version}</finalName>
         <resources>
             <resource>
                 <directory>src/main/resources/views</directory>
