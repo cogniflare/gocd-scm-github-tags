@@ -30,14 +30,13 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 
 import static io.cogniflare.gocd.github.util.JSONUtils.fromJSON;
-import static java.util.Arrays.asList;
 
 @Extension
 public class GocdScmPluginTags implements GoPlugin {
     private static final Logger LOGGER = Logger.getLoggerFor(GocdScmPluginTags.class);
 
     public static final String EXTENSION_NAME = "scm";
-    private static final List<String> goSupportedVersions = asList("1.0");
+    private static final List<String> goSupportedVersions = Collections.singletonList("1.0");
 
     public static final String REQUEST_SCM_CONFIGURATION = "scm-configuration";
     public static final String REQUEST_SCM_VIEW = "scm-view";
@@ -138,7 +137,7 @@ public class GocdScmPluginTags implements GoPlugin {
 
     private GoPluginApiResponse getPluginView(GitRemoteProvider gitRemoteProvider, PluginConfigurationView view) throws IOException {
         if (view.hasConfigurationView()) {
-            Map<String, Object> response = new HashMap<String, Object>();
+            Map<String, Object> response = new HashMap<>();
             response.put("displayValue", gitRemoteProvider.getName());
             response.put("template", getFileContents(view.templateName()));
             return renderJSON(SUCCESS_RESPONSE_CODE, response);
@@ -157,7 +156,7 @@ public class GocdScmPluginTags implements GoPlugin {
         final Map<String, String> configuration = keyValuePairs(requestBodyMap, "scm-configuration");
         final GitConfig gitConfig = getGitConfig(configuration);
 
-        List<Map<String, Object>> response = new ArrayList<Map<String, Object>>();
+        List<Map<String, Object>> response = new ArrayList<>();
         validate(response, (fieldValidation) -> validateUrl(gitConfig, fieldValidation));
         return renderJSON(SUCCESS_RESPONSE_CODE, response);
     }
@@ -167,8 +166,8 @@ public class GocdScmPluginTags implements GoPlugin {
         Map<String, String> configuration = keyValuePairs(requestBodyMap, "scm-configuration");
         GitConfig gitConfig = getGitConfig(configuration);
 
-        Map<String, Object> response = new HashMap<String, Object>();
-        List<String> messages = new ArrayList<String>();
+        Map<String, Object> response = new HashMap<>();
+        List<String> messages = new ArrayList<>();
 
         checkConnection(gitConfig, response, messages);
 
@@ -196,8 +195,8 @@ public class GocdScmPluginTags implements GoPlugin {
             git.submoduleUpdate();
 
             Map<String, Object> revisionMap = getRevisionMap(gitConfig, revision, tag);
-            Map<String, Object> response = new HashMap<String, Object>();
-            Map<String, String> scmDataMap = new HashMap<String, String>();
+            Map<String, Object> response = new HashMap<>();
+            Map<String, String> scmDataMap = new HashMap<>();
 
             response.put("revision", revisionMap);
             response.put("scm-data", scmDataMap);
@@ -283,9 +282,9 @@ public class GocdScmPluginTags implements GoPlugin {
             git.resetHard(revision);
             git.submoduleUpdate();
 
-            Map<String, Object> response = new HashMap<String, Object>();
+            Map<String, Object> response = new HashMap<>();
             response.put("status", "success");
-            response.put("messages", Arrays.asList(String.format("Checked out to revision %s", revision)));
+            response.put("messages", Collections.singletonList(String.format("Checked out to revision %s", revision)));
 
             return renderJSON(SUCCESS_RESPONSE_CODE, response);
         } catch (Throwable t) {
@@ -308,7 +307,7 @@ public class GocdScmPluginTags implements GoPlugin {
     }
 
     private void validate(List<Map<String, Object>> response, FieldValidator fieldValidator) {
-        Map<String, Object> fieldValidation = new HashMap<String, Object>();
+        Map<String, Object> fieldValidation = new HashMap<>();
         fieldValidator.validate(fieldValidation);
         if (!fieldValidation.isEmpty()) {
             response.add(fieldValidation);
@@ -319,14 +318,14 @@ public class GocdScmPluginTags implements GoPlugin {
         List<Map<String, String>> modifiedFilesMapList = new ArrayList<>();
         if (!ListUtil.isEmpty(revision.getModifiedFiles())) {
             for (ModifiedFile modifiedFile : revision.getModifiedFiles()) {
-                Map<String, String> modifiedFileMap = new HashMap<String, String>();
+                Map<String, String> modifiedFileMap = new HashMap<>();
                 modifiedFileMap.put("fileName", modifiedFile.getFileName());
                 modifiedFileMap.put("action", modifiedFile.getAction());
                 modifiedFilesMapList.add(modifiedFileMap);
             }
         }
 
-        Map<String, String> customDataBag = new HashMap<String, String>();
+        Map<String, String> customDataBag = new HashMap<>();
 
         String revisionSHA = revision.getRevision();
         if (tag != null) {
@@ -335,7 +334,7 @@ public class GocdScmPluginTags implements GoPlugin {
             gitRemoteProvider.populateReleaseData(gitConfig, revision, tag, customDataBag);
         }
 
-        Map<String, Object> response = new HashMap<String, Object>();
+        Map<String, Object> response = new HashMap<>();
         response.put("revision", revisionSHA);
         response.put("user", revision.getUser());
         response.put("timestamp", new SimpleDateFormat(DATE_PATTERN).format(revision.getTimestamp()));
@@ -346,7 +345,7 @@ public class GocdScmPluginTags implements GoPlugin {
     }
 
     private Map<String, String> keyValuePairs(Map<String, Object> requestBodyMap, String mainKey) {
-        Map<String, String> keyValuePairs = new HashMap<String, String>();
+        Map<String, String> keyValuePairs = new HashMap<>();
         Map<String, Object> fieldsMap = (Map<String, Object>) requestBodyMap.get(mainKey);
         for (String field : fieldsMap.keySet()) {
             Map<String, Object> fieldProperties = (Map<String, Object>) fieldsMap.get(field);

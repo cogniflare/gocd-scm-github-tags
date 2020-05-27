@@ -12,24 +12,24 @@ import static org.junit.Assert.assertThat;
 public class GitHubGitRemoteProviderTest extends AbstractProviderTest {
 
     @Test
-    public void shouldReturnCorrectScmSettingsTemplate() throws Exception {
+    public void shouldReturnCorrectScmSettingsTemplate() {
         PluginConfigurationView scmConfigurationView = getScmView();
 
-        assertThat(scmConfigurationView.templateName(), is("/views/scm.template.html"));;
+        assertThat(scmConfigurationView.templateName(), is("/views/scm.template.html"));
     }
 
     @Test
-    public void shouldReturnCorrectScmSettingsFields() throws Exception {
+    public void shouldReturnCorrectScmSettingsFields() {
         PluginConfigurationView scmConfigurationView = getScmView();
 
         assertThat(scmConfigurationView.fields().keySet(),
-                   hasItems("url", "username", "password", "defaultBranch", "shallowClone")
+                hasItems("url", "username", "password", "defaultBranch", "shallowClone")
         );
         assertThat(scmConfigurationView.fields().size(), is(5));
     }
 
     @Test
-    public void shouldReturnCorrectGeneralSettingsTemplate() throws Exception {
+    public void shouldReturnCorrectGeneralSettingsTemplate() {
         PluginConfigurationView generalConfigurationView = getGeneralView();
 
         assertThat(generalConfigurationView.templateName(), is(""));

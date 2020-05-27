@@ -15,7 +15,7 @@ public class BranchMatcherTest {
 
     @Parameterized.Parameters(name = "\"{0}\"")
     public static Collection<Object[]> data() {
-        return Arrays.asList(new Object[][] {
+        return Arrays.asList(new Object[][]{
                 // Null and empty
                 {branches(null), valid(), invalid("", "branch", "master"), BranchMatcher.Mode.FAIL_EMPTY},
                 {branches(null), valid("", "branch", "master"), invalid(), BranchMatcher.Mode.PASS_EMPTY},
@@ -96,10 +96,10 @@ public class BranchMatcherTest {
         });
     }
 
-    private String branches;
-    private String[] validBranches;
-    private String[] invalidBranches;
-    private BranchMatcher.Mode mode;
+    private final String branches;
+    private final String[] validBranches;
+    private final String[] invalidBranches;
+    private final BranchMatcher.Mode mode;
 
     public BranchMatcherTest(String branches, String[] validBranches, String[] invalidBranches, BranchMatcher.Mode mode) {
         this.branches = branches;

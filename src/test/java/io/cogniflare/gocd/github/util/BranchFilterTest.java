@@ -36,7 +36,7 @@ public class BranchFilterTest {
 
     @Parameterized.Parameters(name = "whitelist: \"{0}\" and blacklist: \"{1}\"; Expect branch \"{2}\" to {3}")
     public static Collection<Object[]> data() {
-        return Arrays.asList(new Object[][] {
+        return Arrays.asList(new Object[][]{
                 {blacklist(null), whitelist(null), branch("master"), Expect.PASS},
                 {blacklist(null), whitelist(null), branch("feature"), Expect.PASS},
 
@@ -61,10 +61,10 @@ public class BranchFilterTest {
         });
     }
 
-    private String blacklist;
-    private String whitelist;
-    private String branch;
-    private Expect expect;
+    private final String blacklist;
+    private final String whitelist;
+    private final String branch;
+    private final Expect expect;
 
     public BranchFilterTest(String blacklist, String whitelist, String branch, Expect expect) {
         this.blacklist = blacklist;

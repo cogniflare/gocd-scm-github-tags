@@ -8,7 +8,7 @@ import java.util.List;
 
 public class BranchMatcher {
 
-    public static final String SEPARATOR = ",(?![^{]*\\})";
+    public static final String SEPARATOR = ",(?![^{]*})";
 
     public enum Mode {
         PASS_EMPTY,
@@ -16,8 +16,8 @@ public class BranchMatcher {
     }
 
     private String pattern;
-    private Mode mode;
-    private List<PathMatcher> patterns = new ArrayList<>();
+    private final Mode mode;
+    private final List<PathMatcher> patterns = new ArrayList<>();
 
     public BranchMatcher(String branchPattern, Mode mode) {
         if (branchPattern != null) {

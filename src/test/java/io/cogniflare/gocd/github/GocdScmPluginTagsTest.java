@@ -8,7 +8,6 @@ import com.thoughtworks.go.plugin.api.response.DefaultGoApiResponse;
 import com.thoughtworks.go.plugin.api.response.GoPluginApiResponse;
 import com.tw.go.plugin.GitHelper;
 import com.tw.go.plugin.model.GitConfig;
-import com.tw.go.plugin.model.ModifiedFile;
 import com.tw.go.plugin.model.Revision;
 import io.cogniflare.gocd.github.gitRemoteProvider.github.GHUtils;
 import io.cogniflare.gocd.github.gitRemoteProvider.github.GitHubGitRemoteProvider;
@@ -67,7 +66,7 @@ public class GocdScmPluginTagsTest {
 
     @Test
     public void shouldBuildGitConfig() {
-        HashMap<String, String> configuration = new HashMap<String, String>();
+        HashMap<String, String> configuration = new HashMap<>();
         configuration.put("url", "url");
         configuration.put("username", "config-username");
         configuration.put("password", "config-password");
@@ -243,7 +242,7 @@ public class GocdScmPluginTagsTest {
             put(branch, "abcdef01234567891");
         }});
         when(helper.getDetailsForRevision("abcdef01234567891")).thenReturn(
-                new Revision("abcdef01234567891", new Date(), "", "", "", Collections.<ModifiedFile>emptyList())
+                new Revision("abcdef01234567891", new Date(), "", "", "", Collections.emptyList())
         );
     }
 
@@ -288,8 +287,8 @@ public class GocdScmPluginTagsTest {
             assertThat(response.size(), is(0));
         } else {
             for (int i = 0; i < pairs.size(); i++) {
-                assertThat((String) ((Map) response.get(i)).get("key"), is(pairs.get(i).key));
-                assertThat((String) ((Map) response.get(i)).get("message"), is(pairs.get(i).value));
+                assertThat(((Map) response.get(i)).get("key"), is(pairs.get(i).key));
+                assertThat(((Map) response.get(i)).get("message"), is(pairs.get(i).value));
             }
         }
     }
