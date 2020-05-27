@@ -1,29 +1,18 @@
-[![Build Status](https://travis-ci.org/ashwanthkumar/gocd-build-github-pull-requests.svg?branch=master)](https://travis-ci.org/ashwanthkumar/gocd-build-github-pull-requests)
 
-# GoCD - Git feature branch support
-This is a GoCD SCM plugin for Git feature branch support. [Discussion Thread](https://groups.google.com/d/topic/go-cd-dev/Rt_Y5G2VkOc/discussion)
+# GoCD - Git tags and releases support
+This is a GoCD SCM plugin for Git tag support.
 
 Supported (as separate plugins):
-* Git repository for branches
-* Github repository for Pull Requests
-* Stash repository for Pull Requests
-* Gerrit repository for Change Sets
-
-## Migration from Git Feature Branch plugin 1.2.x to 1.3
-
-Addition of the white and blacklist feature to Git Feature Branch plugin changes the identity of 
-the SCM material. This means that it may trigger automatically triggered pipelines that use 
-Git Feature Branch material. When moving from version 1.2.x to 1.3.x be sure to pause all 
-pipelines which shouldn't be triggered or be ready to cancel them in case they are triggered.
+* Github repository for Releases
 
 ## Requirements
-These plugins require GoCD version v15.x or above.
+These plugins require GoCD version v20.x or above.
 
 ## Get Started
 **Installation:**
 - Download the latest plugin jar from the [Releases](https://github.com/ashwanthkumar/gocd-build-github-pull-requests/releases) section. Place it in `<go-server-location>/plugins/external` & restart Go Server. You can find the location of the Go Server installation [here](http://www.go.cd/documentation/user/current/installation/installing_go_server.html#location-of-files-after-installation-of-go-server).
 
-**Usage:**
+**Usage: (Outdated, forked from another repo)**
 
 * Make sure plugins are loaded. Note: You can use [GoCD build status notifier](https://github.com/srinivasupadhya/gocd-build-status-notifier) to update status of Pull Requests with build status.
 ![Plugins listing page][1]
@@ -95,42 +84,6 @@ When working with Github PR material, we also make available the following list 
 | PR_DESCRIPTION | Description of the Pull Request |
 | PR_TITLE | Title of the Pull Request |
 
-
-### Stash
-**Authentication**
-
-If authentication is required, place a file named `.netrc` under the Go user's home directory. The file needs to be created in both the server and any number of agents that will build this material. You can find the home directory for Go server [here](http://www.go.cd/documentation/user/current/installation/installing_go_server.html#location-of-files-after-installation-of-go-server) and for Go Agent
-[here](http://www.go.cd/documentation/user/current/installation/installing_go_agent.html#location-of-files-after-installing-go-agent).
-
-The `.netrc` file takes the following format:
-
-```
-machine stash.vm.com 
-login myusername
-password mypassword
-```
-
-### Git
-
-#### Branch filtering
-
-Git feature branches support filtering the branches with whitelist and blacklist.
-Both lists support _glob_ syntax (`*`, `?`, `[...]`, `{...}`) and multiple branch patterns
-can be given as a comma separated list. The glob syntax is same as
-defined in Java's [FileSystem.getPathMatcher()](https://docs.oracle.com/javase/7/docs/api/java/nio/file/FileSystem.html#getPathMatcher%28java.lang.String%29)
-method. If neither blacklist or whitelist pattern is defined, all branches will be built.
-
-The blacklist takes precedence over whitelist. I.e. a branch will not be built if the
-blacklist pattern matches to the branch name.
-
-## To Dos
-- Clean up the code esp. the JSON SerDe part
-- Add proper tests around the plugin
-
-## FAQs
-
-### Pull Request isn't being built
-- If more than 1 PR gets updated (create/update) Go bunches them together for the next pipeline run & uses the top change in the "build-cause" to build. You can force trigger pipeline with other revisions until this get fixed ([thread](https://github.com/gocd/gocd/issues/938)).
 
 [1]: images/list-plugin.png  "List Plugin"
 [2]: images/original-pipeline.png  "Original Pipeline"
