@@ -83,13 +83,6 @@ public class GitHubGitRemoteProvider implements GitRemoteProvider {
 
     @Override
     public void populateReleaseData(GitConfig gitConfig, Revision prSHA, String tag, Map<String, String> data) {
-
-        boolean isDisabled = System.getProperty("go.plugin.github.pr.populate-details", "Y").equals("N");
-        if (isDisabled) {
-            LOGGER.debug("Populating PR details is disabled");
-            return;
-        }
-
         try {
             Optional<GHRelease> release = getGithubReleaseForTag(gitConfig, tag);
 
@@ -101,7 +94,7 @@ public class GitHubGitRemoteProvider implements GitRemoteProvider {
             data.put("RELEASE_NAME", String.valueOf(release.get().getName()));
             data.put("RELEASE_BODY", String.valueOf(release.get().getBody()));
         } catch (IOException e) {
-            e.printStackTrace();
+            LOGGER.error(String.format("Cannot populate release data for tag: %s", tag), e);
         }
     }
 
