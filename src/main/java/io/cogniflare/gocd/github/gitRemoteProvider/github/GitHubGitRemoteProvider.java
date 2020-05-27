@@ -1,5 +1,6 @@
 package io.cogniflare.gocd.github.gitRemoteProvider.github;
 
+import com.thoughtworks.go.plugin.api.logging.Logger;
 import com.tw.go.plugin.GitHelper;
 import com.tw.go.plugin.model.GitConfig;
 import com.tw.go.plugin.model.Revision;
@@ -14,8 +15,6 @@ import io.cogniflare.gocd.github.util.URLUtils;
 import org.kohsuke.github.GHRelease;
 import org.kohsuke.github.GitHub;
 import org.kohsuke.github.PagedIterable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
@@ -26,8 +25,9 @@ import java.util.Optional;
 import java.util.Properties;
 
 public class GitHubGitRemoteProvider implements GitRemoteProvider {
-    private static final Logger LOG = LoggerFactory.getLogger(GitHubGitRemoteProvider.class);
-    public static final String REF_SPEC = "refs/tags/*:refs/tags/*";
+    private static final Logger LOGGER = Logger.getLoggerFor(GitHubGitRemoteProvider.class);
+    private static final String REF_SPEC = "refs/tags/*:refs/tags/*";
+    private GitHub github;
 
     @Override
     public String getName() {
@@ -57,9 +57,16 @@ public class GitHubGitRemoteProvider implements GitRemoteProvider {
     @Override
     public void checkConnection(GitConfig gitConfig) {
         try {
-            loginWith(gitConfig).getRepository(GHUtils.parseGithubUrl(gitConfig.getEffectiveUrl()));
+
+            String repository = GHUtils.parseGithubUrl(gitConfig.getEffectiveUrl());
+            LOGGER.info(String.format("checking connection to repository: %s", repository));
+
+            loginWith(gitConfig)
+                    .getRepository(repository);
         } catch (Exception e) {
-            throw new RuntimeException(String.format("check connection failed. %s", e.getMessage()), e);
+            String message = String.format("check connection failed. %s", e.getMessage());
+            LOGGER.info(message);
+            throw new RuntimeException(message, e);
         }
     }
 
@@ -79,7 +86,7 @@ public class GitHubGitRemoteProvider implements GitRemoteProvider {
 
         boolean isDisabled = System.getProperty("go.plugin.github.pr.populate-details", "Y").equals("N");
         if (isDisabled) {
-            LOG.debug("Populating PR details is disabled");
+            LOGGER.debug("Populating PR details is disabled");
             return;
         }
 
@@ -87,7 +94,7 @@ public class GitHubGitRemoteProvider implements GitRemoteProvider {
             Optional<GHRelease> release = getGithubReleaseForTag(gitConfig, tag);
 
             if (!release.isPresent()) {
-                LOG.error(String.format("Cannot find release: %s", tag));
+                LOGGER.error(String.format("Cannot find release: %s", tag));
                 return;
             }
 
@@ -130,21 +137,24 @@ public class GitHubGitRemoteProvider implements GitRemoteProvider {
     }
 
     private GitHub loginWith(GitConfig gitConfig) throws IOException {
+        if (github == null) {
+            github = _loginWith(gitConfig);
+        }
+        return github;
+    }
+
+    private GitHub _loginWith(GitConfig gitConfig) throws IOException {
+        LOGGER.debug("Login to github, env:");
+        LOGGER.debug(String.format("https.proxyHost: %s", System.getProperty("https.proxyHost")));
+        LOGGER.debug(String.format("https.proxyPort: %s", System.getProperty("https.proxyPort")));
+        LOGGER.debug(String.format("http.nonProxyHosts: %s", System.getProperty("http.nonProxyHosts")));
+
         if (!hasCredentials(gitConfig)) {
+            LOGGER.info("Github credentials not provided, using config file");
             return GitHub.connect();
         }
 
-        // Cloud auth methods
-        try {
-            return GitHub.connectUsingPassword(gitConfig.getUsername(), gitConfig.getPassword());
-        } catch (Exception t) {
-            LOG.trace("Cannot authenticate to GitHub cloud using password", t);
-        }
-        try {
-            return GitHub.connect(gitConfig.getUsername(), gitConfig.getPassword());
-        } catch (Exception t) {
-            LOG.trace("Cannot authenticate to GitHub cloud using oAuth", t);
-        }
+        String repositoryId = GHUtils.parseGithubUrl(gitConfig.getEffectiveUrl());
 
         // Enterprise auth methods
         try {
@@ -152,19 +162,44 @@ public class GitHubGitRemoteProvider implements GitRemoteProvider {
             String domain = getDomainName(url);
             String apiEndpoint = String.format("https://%s/api/v3/", domain);
 
-            try {
-                return GitHub.connectToEnterprise(apiEndpoint, gitConfig.getUsername(), gitConfig.getPassword());
-            } catch (Exception t) {
-                LOG.trace(String.format("Cannot authenticate to GitHub enterprise (%s) using password", apiEndpoint), t);
+            if (!Objects.equals(domain, "github.com")) {
+                try {
+                    GitHub gitHub = GitHub.connectToEnterprise(apiEndpoint, gitConfig.getUsername(), gitConfig.getPassword());
+                    gitHub.getRepository(repositoryId); // test connection
+                    LOGGER.info("Successfully authenticated to GitHub enterprise using password");
+                    return gitHub;
+                } catch (Exception t) {
+                    LOGGER.error(String.format("Cannot authenticate to GitHub enterprise (%s) using password", apiEndpoint), t);
+                }
+                try {
+                    GitHub gitHub = GitHub.connectToEnterprise(apiEndpoint, gitConfig.getPassword());
+                    gitHub.getRepository(repositoryId); // test connection
+                    LOGGER.info("Successfully authenticated to GitHub enterprise using oAuth");
+                    return gitHub;
+                } catch (Exception t) {
+                    LOGGER.error(String.format("Cannot authenticate to GitHub enterprise (%s) using oAuth", apiEndpoint), t);
+                }
             }
-            try {
-                return GitHub.connectToEnterprise(apiEndpoint, gitConfig.getPassword());
-            } catch (Exception t) {
-                LOG.trace(String.format("Cannot authenticate to GitHub enterprise (%s) using oAuth", apiEndpoint), t);
-            }
-
         } catch (URISyntaxException e) {
-            LOG.trace("Cannot get repository domain name", e);
+            LOGGER.error("Cannot get repository domain name", e);
+        }
+
+        // Cloud auth methods
+        try {
+            GitHub gitHub = GitHub.connectUsingPassword(gitConfig.getUsername(), gitConfig.getPassword());
+            gitHub.getRepository(repositoryId); // test connection
+            LOGGER.info("Successfully authenticated to GitHub cloud using password");
+            return gitHub;
+        } catch (Exception t) {
+            LOGGER.error("Cannot authenticate to GitHub cloud using password", t);
+        }
+        try {
+            GitHub gitHub = GitHub.connect(gitConfig.getUsername(), gitConfig.getPassword());
+            gitHub.getRepository(repositoryId); // test connection
+            LOGGER.info("Successfully authenticated to GitHub cloud using oAuth");
+            return gitHub;
+        } catch (Exception t) {
+            LOGGER.error("Cannot authenticate to GitHub cloud using oAuth", t);
         }
 
         throw new IOException("Cannot authenticate to github repository.");

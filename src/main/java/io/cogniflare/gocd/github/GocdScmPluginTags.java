@@ -213,7 +213,7 @@ public class GocdScmPluginTags implements GoPlugin {
     GoPluginApiResponse handleLatestRevisionSince(GoPluginApiRequest goPluginApiRequest) {
         Map<String, Object> requestBodyMap = (Map<String, Object>) fromJSON(goPluginApiRequest.requestBody());
         Map<String, String> configuration = keyValuePairs(requestBodyMap, "scm-configuration");
-        Map<String, String> previousRevision = keyValuePairs(requestBodyMap, "previous-revision");
+        Map<String, String> previousRevision = (Map<String, String>) requestBodyMap.get("previous-revision");
         final GitConfig gitConfig = getGitConfig(configuration);
         String flyweightFolder = (String) requestBodyMap.get("flyweight-folder");
         LOGGER.debug(String.format("Fetching latest for: %s", gitConfig.getUrl()));
@@ -240,7 +240,7 @@ public class GocdScmPluginTags implements GoPlugin {
                     rev -> getRevisionMap(gitConfig, rev, null)
             );
 
-            revisions.set(0, getRevisionMap(gitConfig, revision, tag));
+            revisions.add(0, getRevisionMap(gitConfig, revision, tag));
 
             Map<String, Object> response = new HashMap<>();
             Map<String, String> scmDataMap = new HashMap<>();
@@ -328,13 +328,15 @@ public class GocdScmPluginTags implements GoPlugin {
 
         Map<String, String> customDataBag = new HashMap<String, String>();
 
+        String revisionSHA = revision.getRevision();
         if (tag != null) {
+            revisionSHA = tag;
             customDataBag.put("RELEASE_TAG", tag);
             gitRemoteProvider.populateReleaseData(gitConfig, revision, tag, customDataBag);
         }
 
         Map<String, Object> response = new HashMap<String, Object>();
-        response.put("revision", revision.getRevision());
+        response.put("revision", revisionSHA);
         response.put("user", revision.getUser());
         response.put("timestamp", new SimpleDateFormat(DATE_PATTERN).format(revision.getTimestamp()));
         response.put("revisionComment", revision.getComment());
@@ -365,6 +367,7 @@ public class GocdScmPluginTags implements GoPlugin {
     }
 
     public void checkConnection(GitConfig gitConfig, Map<String, Object> response, List<String> messages) {
+        LOGGER.info("Checking SCM connection...");
         if (StringUtil.isEmpty(gitConfig.getUrl())) {
             response.put("status", "failure");
             messages.add("URL is empty");
